@@ -223,43 +223,26 @@ resource "aws_route_table_association" "rta_nat_czone" {
   route_table_id = aws_route_table.rt_nat_czone.id
 }
 
-# 프라이빗 서브넷 라우팅 테이블 생성 (A 가용 영역) - NAT 게이트웨이로 트래픽 라우팅
-resource "aws_route_table" "rt_private_azone" {
+# 프라이빗 서브넷 라우팅 테이블 생성 - VPC 내부 통신만 허용
+resource "aws_route_table" "rt_private" {
   vpc_id = aws_vpc.vpc_tier3.id
 
-  # 인터넷으로 가는 모든 트래픽을 NAT 게이트웨이로 보냄
-  route {
-    cidr_block     = "0.0.0.0/0"              # 모든 트래픽
-    nat_gateway_id = aws_nat_gateway.natgw_azone.id # A 영역 NAT 게이트웨이로 라우팅
-  }
-
+  # 기본적으로 로컬 라우팅만 사용 (NAT 게이트웨이로 라우팅하지 않음)
+  # 명시적인 로컬 라우팅은 설정하지 않아도 됨 (AWS에서 자동으로 추가)
+  
   tags = {
-    Name = "RT_private_Azone"
-  }
-}
-
-# 프라이빗 서브넷 라우팅 테이블 생성 (C 가용 영역) - NAT 게이트웨이로 트래픽 라우팅
-resource "aws_route_table" "rt_private_czone" {
-  vpc_id = aws_vpc.vpc_tier3.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"              # 모든 트래픽
-    nat_gateway_id = aws_nat_gateway.natgw_czone.id # C 영역 NAT 게이트웨이로 라우팅
-  }
-
-  tags = {
-    Name = "RT_private_Czone"
+    Name = "RT_private"
   }
 }
 
 # 프라이빗 서브넷과 프라이빗 라우팅 테이블 연결 (A 가용 영역)
 resource "aws_route_table_association" "rta_private_azone" {
   subnet_id      = aws_subnet.subnet_private_azone.id
-  route_table_id = aws_route_table.rt_private_azone.id
+  route_table_id = aws_route_table.rt_private.id
 }
 
 # 프라이빗 서브넷과 프라이빗 라우팅 테이블 연결 (C 가용 영역)
 resource "aws_route_table_association" "rta_private_czone" {
   subnet_id      = aws_subnet.subnet_private_czone.id
-  route_table_id = aws_route_table.rt_private_czone.id
+  route_table_id = aws_route_table.rt_private.id
 }
