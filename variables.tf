@@ -111,13 +111,13 @@ variable "common_tags" {
 variable "node_instance_types" {
   description = "EKS 노드 그룹에 사용할 인스턴스 타입 목록"
   type        = list(string)
-  default     = ["t2.micro"]
+  default     = ["t3.medium"]
 }
 
 variable "node_disk_size" {
   description = "EKS 노드의 디스크 크기(GB)"
   type        = number
-  default     = 8
+  default     = 20
 }
 
 variable "node_capacity_type" {

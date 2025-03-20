@@ -194,7 +194,7 @@ resource "aws_eks_addon" "coredns" {
   
   # 애드온 설치 전에 노드 그룹이 존재해야 합니다
   # 노드 그룹 생성 후 주석 해제
-  # depends_on = [aws_eks_node_group.example]
+  depends_on = [aws_eks_cluster.this, aws_eks_node_group.general_purpose]
 }
 
 # kube-proxy 애드온 - 네트워크 프록시

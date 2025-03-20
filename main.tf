@@ -60,8 +60,8 @@ module "compute" {
   additional_security_group_ids = [module.security.app_security_group_id]
   
   # 노드 그룹 설정
-  node_instance_types = ["t2.micro"]
-  node_disk_size      = 10
+  node_instance_types = ["t3.medium"]
+  node_disk_size      = 20
   node_capacity_type  = "ON_DEMAND"
   node_desired_size   = 2
   node_min_size       = 1
@@ -69,7 +69,7 @@ module "compute" {
   
   # 엔드포인트 접근 설정
   endpoint_private_access = true
-  endpoint_public_access  = false
+  endpoint_public_access  = true
   public_access_cidrs     = var.public_access_cidrs
   
   # 클러스터 버전 및 설정
