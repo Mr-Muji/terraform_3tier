@@ -28,13 +28,15 @@ variable "public_subnet_cidrs" {
   type        = map(string)
 }
 
+# NAT 서브넷 CIDR 블록
 variable "nat_subnet_cidrs" {
-  description = "NAT 서브넷 CIDR 블록 맵"
+  description = "프라이빗 서브넷의 CIDR 블록 (이전 NAT 서브넷, 앱 계층용)"
   type        = map(string)
 }
 
+# 프라이빗 서브넷 CIDR 블록
 variable "private_subnet_cidrs" {
-  description = "프라이빗 서브넷 CIDR 블록 맵"
+  description = "데이터베이스 서브넷의 CIDR 블록 (이전 프라이빗 서브넷, 데이터베이스 계층용)"
   type        = map(string)
 }
 
@@ -49,4 +51,10 @@ variable "enable_dns_hostnames" {
   description = "VPC에서 DNS 호스트 이름 활성화 여부" 
   type        = bool
   default     = true
+}
+
+# EKS 클러스터 이름
+variable "eks_cluster_name" {
+  description = "EKS 클러스터 이름 - 서브넷 태그 지정에 사용"
+  type        = string
 }

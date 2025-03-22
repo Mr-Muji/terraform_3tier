@@ -1,0 +1,75 @@
+# ArgoCD 커스텀 values 파일
+global:
+  image:
+    tag: latest
+
+server:
+  extraArgs:
+    - --insecure  # SSL 종료를 인그레스에서 처리하도록 설정
+
+  ingress:
+    enabled: ${ingress_enabled}
+    hosts:
+      - ${ingress_host}
+    annotations: ${ingress_annotations}
+    ingressClassName: ${ingress_class}
+
+configs:
+  secret:
+    argocdServerAdminPassword: ${admin_password_hash}
+
+  cm:
+    timeout.reconciliation: 180s
+    resource.compareoptions: |
+      ignoreAggregatedRoles: true
+    # ECR 인증 설정
+    repositories: |
+      - type: helm
+        url: https://charts.bitnami.com/bitnami
+        name: bitnami
+      - type: helm
+        url: https://kubernetes.github.io/ingress-nginx
+        name: ingress-nginx
+
+# Prometheus 메트릭 활성화
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+# 리소스 제한 설정
+controller:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+server:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+repoServer:
+  resources:
+    limits:
+      cpu: 300m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+applicationSet:
+  resources:
+    limits:
+      cpu: 300m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi 

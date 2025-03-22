@@ -194,3 +194,25 @@ resource "aws_security_group" "db_sg" {
 #     ManagedBy   = "Terraform"
 #   }
 # }
+
+# ECR 접근을 위한 정책 생성
+resource "aws_iam_policy" "ecr_access_policy" {
+  name        = "${var.project_name}-ecr-access-policy"
+  description = "ECR 저장소에 대한 접근 권한 정책"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}

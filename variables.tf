@@ -111,7 +111,7 @@ variable "common_tags" {
 variable "node_instance_types" {
   description = "EKS 노드 그룹에 사용할 인스턴스 타입 목록"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t2.micro"]
 }
 
 variable "node_disk_size" {
@@ -141,5 +141,120 @@ variable "node_min_size" {
 variable "node_max_size" {
   description = "EKS 노드 그룹의 최대 노드 수"
   type        = number
-  default     = 5
+  default     = 3
+}
+
+#---------------------------------------
+# DB 설정 변수
+#---------------------------------------
+
+variable "db_name" {
+  description = "MySQL 데이터베이스 이름"
+  type        = string
+  default     = "myapp"
+}
+
+variable "db_username" {
+  description = "MySQL 관리자 사용자명"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_password" {
+  description = "MySQL 관리자 비밀번호"
+  type        = string
+  sensitive   = true
+}
+
+variable "mysql_version" {
+  description = "MySQL 엔진 버전"
+  type        = string
+  default     = "8.0.40"
+}
+
+variable "db_instance_class" {
+  description = "데이터베이스 인스턴스 유형"
+  type        = string
+  default     = "db.t4g.micro"  # ARM 기반 가장 저렴한 인스턴스
+}
+
+variable "allocated_storage" {
+  description = "할당할 스토리지 용량 (GB)"
+  type        = number
+  default     = 5  # 최소 스토리지 크기
+}
+
+variable "storage_type" {
+  description = "스토리지 유형 (gp2, gp3, io1 등)"
+  type        = string
+  default     = "gp2"  # 표준 스토리지 타입
+}
+
+variable "backup_retention_period" {
+  description = "자동 백업 보존 기간 (일)"
+  type        = number
+  default     = 1  # 최소 백업 기간
+}
+
+variable "deletion_protection" {
+  description = "삭제 방지 활성화 여부"
+  type        = bool
+  default     = false # 삭제 방지 비활성화
+}
+
+variable "skip_final_snapshot" {
+  description = "삭제 시 최종 스냅샷 생성 건너뛰기 여부"
+  type        = bool
+  default     = true  # 스냅샷 생성 건너뛰기
+}
+
+variable "availability_zone_a" {
+  description = "A존 가용 영역"
+  type        = string
+  default     = "ap-northeast-2a"  # 사용 중인 리전에 맞게 수정
+}
+
+# 리소스 접두사
+variable "prefix" {
+  description = "모든 리소스 이름의 접두사"
+  type        = string
+  default     = "3tier"
+}
+
+# AWS 리전 - aws_region과 동일하게 사용
+variable "region" {
+  description = "AWS 리전"
+  type        = string
+  default     = "ap-northeast-2"
+}
+
+variable "ecr_name" {
+  description = "ECR 저장소 이름"
+  type        = string
+  default     = "3tier-ecr"
+}
+
+variable "argocd_admin_password_hash" {
+  description = "ArgoCD 관리자 비밀번호 해시 (bcrypt 형식)"
+  type        = string
+  sensitive   = true
+  default     = "$2a$10$rRyBsGSHK6.uc8fntPwVIuLVHgsAhAX7TcdrqW/RADU0uh7CaChLa" # 'admin' 비밀번호의 해시
+}
+
+variable "frontend_git_repo_url" {
+  description = "프론트엔드 매니페스트가 저장된 Git 저장소 URL"
+  type        = string
+  default     = ""
+}
+
+variable "frontend_git_revision" {
+  description = "사용할 Git 브랜치 또는 태그"
+  type        = string
+  default     = "main"
+}
+
+variable "domain_name" {
+  description = "사용할 도메인 이름"
+  type        = string
+  default     = "example.com"
 }

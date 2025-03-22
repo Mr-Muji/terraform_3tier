@@ -86,7 +86,7 @@ variable "tags" {
 variable "node_instance_types" {
   description = "EKS 노드 그룹에 사용할 인스턴스 타입 목록"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.micro"]
 }
 
 variable "node_disk_size" {
@@ -104,7 +104,7 @@ variable "node_capacity_type" {
 variable "node_desired_size" {
   description = "EKS 노드 그룹의 원하는 노드 수"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "node_min_size" {
@@ -116,5 +116,25 @@ variable "node_min_size" {
 variable "node_max_size" {
   description = "EKS 노드 그룹의 최대 노드 수"
   type        = number
-  default     = 5
+  default     = 2
+}
+
+# Kubernetes 네임스페이스
+variable "kubernetes_namespace" {
+  description = "생성할 Kubernetes 네임스페이스"
+  type        = string
+  default     = "backend"
+}
+
+# AWS Load Balancer Controller 설정
+variable "enable_aws_load_balancer_controller" {
+  description = "AWS Load Balancer Controller 설치 여부"
+  type        = bool
+  default     = true
+}
+
+variable "aws_load_balancer_controller_chart_version" {
+  description = "AWS Load Balancer Controller Helm 차트 버전"
+  type        = string
+  default     = "1.7.1"  # 사용하려는 차트 버전으로 업데이트
 }

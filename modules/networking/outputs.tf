@@ -11,17 +11,24 @@ output "vpc_cidr" {
 
 # 서브넷 출력값
 output "public_subnet_ids" {
-  description = "퍼블릭 서브넷 ID 목록"
+  description = "생성된 퍼블릭 서브넷 ID 목록"
   value       = [aws_subnet.subnet_public_azone.id, aws_subnet.subnet_public_czone.id]
 }
 
-output "nat_subnet_ids" {
-  description = "NAT 서브넷 ID 목록"
-  value       = [aws_subnet.subnet_nat_azone.id, aws_subnet.subnet_nat_czone.id]
+output "private_subnet_ids" {
+  description = "생성된 프라이빗 서브넷 ID 목록"
+  value       = [aws_subnet.subnet_private_azone.id, aws_subnet.subnet_private_czone.id]
 }
 
-output "private_subnet_ids" {
-  description = "프라이빗 서브넷 ID 목록"
+# 데이터베이스 서브넷 ID 목록 출력 (기존 프라이빗 서브넷)
+output "database_subnet_ids" {
+  description = "생성된 데이터베이스 서브넷 ID 목록"
+  value       = [aws_subnet.subnet_database_azone.id, aws_subnet.subnet_database_czone.id]
+}
+
+# 이전 NAT 서브넷 ID 출력 유지 (이전 코드와의 호환성)
+output "nat_subnet_ids" {
+  description = "생성된 프라이빗 서브넷 ID 목록 (이전 NAT 서브넷)"
   value       = [aws_subnet.subnet_private_azone.id, aws_subnet.subnet_private_czone.id]
 }
 
@@ -38,12 +45,12 @@ output "public_subnet_c_id" {
 
 output "nat_subnet_a_id" {
   description = "NAT 서브넷 A ID"
-  value       = aws_subnet.subnet_nat_azone.id
+  value       = aws_subnet.subnet_private_azone.id
 }
 
 output "nat_subnet_c_id" {
   description = "NAT 서브넷 C ID"
-  value       = aws_subnet.subnet_nat_czone.id
+  value       = aws_subnet.subnet_private_czone.id
 }
 
 output "private_subnet_a_id" {
@@ -62,32 +69,13 @@ output "internet_gateway_id" {
   value       = aws_internet_gateway.igw_tier3.id
 }
 
-output "nat_gateway_a_id" {
-  description = "NAT 게이트웨이 A ID"
-  value       = aws_nat_gateway.natgw_azone.id
-}
-
-output "nat_gateway_c_id" {
-  description = "NAT 게이트웨이 C ID"
-  value       = aws_nat_gateway.natgw_czone.id
+# 수정된 코드 (단일 NAT 게이트웨이)
+output "nat_gateway_id" {
+  description = "NAT 게이트웨이 ID"
+  value       = aws_nat_gateway.nat_gateway.id
 }
 
 # 라우팅 테이블 출력값
-output "public_route_table_id" {
-  description = "퍼블릭 라우팅 테이블 ID"
-  value       = aws_route_table.rt_public.id
-}
-
-output "nat_route_table_a_id" {
-  description = "NAT 라우팅 테이블 A ID"
-  value       = aws_route_table.rt_nat_azone.id
-}
-
-output "nat_route_table_c_id" {
-  description = "NAT 라우팅 테이블 C ID"
-  value       = aws_route_table.rt_nat_czone.id
-}
-
 output "private_route_table_id" {
   description = "프라이빗 라우팅 테이블 ID"
   value       = aws_route_table.rt_private.id

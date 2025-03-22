@@ -4,7 +4,7 @@ name: "테라폼 CI/CD"
 on:
   push:
     branches:
-      - main    # main 브랜치에 푸시될 때 워크플로우 실행 (CD 트리거)
+      - main2    # main 브랜치에 푸시될 때 워크플로우 실행 (CD 트리거)
   pull_request:
     branches:
       - main    # main 브랜치로 PR이 생성/업데이트될 때 워크플로우 실행 (CI 트리거)
@@ -47,7 +47,7 @@ jobs:
 
       # 테라폼 코드 포맷 검사 - 코드 스타일 일관성 확인
       - name: 테라폼 포맷 확인
-        id: fmt
+        id: fmt    
         run: terraform fmt -check    # 포맷 오류가 있으면 종료 코드 반환
         continue-on-error: true      # 포맷 오류가 있어도 워크플로우 계속 진행
 
@@ -102,3 +102,8 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'   # main 브랜치 푸시 이벤트일 때만 실행
         run: terraform apply -auto-approve   # 자동 승인으로 변경 사항 적용 (실제 AWS 리소스 생성/수정/삭제)
         # 주의: 이 단계에서 실제 인프라가 변경됩니다!
+
+      # 실패 시 롤백
+      - name: 실패 시 롤백
+        if: failure() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform destroy -auto-approve
