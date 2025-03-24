@@ -44,8 +44,3 @@ output "frontend_namespace" {
   description = "프론트엔드 애플리케이션이 배포된 네임스페이스"
   value       = var.install_argocd ? kubernetes_namespace.frontend[0].metadata[0].name : ""
 }
-
-output "frontend_manifest_path" {
-  description = "생성된 프론트엔드 매니페스트 경로"
-  value       = var.install_argocd ? local_file.frontend_manifest[0].filename : ""
-}

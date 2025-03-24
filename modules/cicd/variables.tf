@@ -60,6 +60,13 @@ variable "argocd_admin_password_hash" {
   default     = "$2a$10$rRyBsGSHK6.uc8fntPwVIuLVHgsAhAX7TcdrqW/RADU0uh7CaChLa" # 'admin' 비밀번호의 해시
 }
 
+variable "argocd_admin_password" {
+  description = "ArgoCD 관리자 비밀번호 (평문)"
+  type        = string
+  sensitive   = true
+  default     = ""  # 기본값으로 'admin' 설정
+}
+
 variable "git_repo_url" {
   description = "프론트엔드 매니페스트가 저장된 Git 저장소 URL"
   type        = string
@@ -131,4 +138,84 @@ variable "frontend_ingress_host" {
   description = "프론트엔드 인그레스 호스트 이름"
   type        = string
   default     = "frontend.example.com"
+}
+
+# App of Apps 패턴 관련 변수
+variable "helm_charts_repo_url" {
+  description = "Helm 차트 매니페스트가 저장된 Git 저장소 URL"
+  type        = string
+  default     = ""
+}
+
+variable "helm_charts_repo_path" {
+  description = "Helm 차트 저장소 내 루트 차트 경로"
+  type        = string
+  default     = "apps"
+}
+
+variable "helm_charts_revision" {
+  description = "Helm 차트 저장소에서 사용할 브랜치 또는 태그"
+  type        = string
+  default     = "main"
+}
+
+variable "environment" {
+  description = "배포 환경 (dev, staging, prod 등)"
+  type        = string
+  default     = "dev"
+}
+
+variable "domain_name" {
+  description = "애플리케이션에 사용할 기본 도메인 이름"
+  type        = string
+  default     = ""
+}
+
+variable "zone_id" {
+  description = "Route 53 호스팅 영역 ID (비어 있으면 DNS 레코드가 생성되지 않음)"
+  type        = string
+  default     = ""
+}
+
+# ECR 강제 삭제 관련 변수 추가
+variable "ecr_force_delete" {
+  description = "ECR 저장소 강제 삭제 여부 (이미지가 있어도 삭제)"
+  type        = bool
+  default     = true
+}
+
+# 쿠버네티스 리소스 인그레스 의존성 관련 변수
+variable "k8s_cleanup_wait_seconds" {
+  description = "쿠버네티스 리소스 정리 후 대기 시간 (초)"
+  type        = number
+  default     = 10
+}
+
+variable "cluster_exists" {
+  description = "EKS 클러스터가 존재하는지 여부"
+  type        = bool
+  default     = false
+}
+
+variable "eks_cluster_id" {
+  description = "EKS 클러스터 ID"
+  type        = string
+  default     = ""
+}
+
+variable "eks_cluster_endpoint" {
+  description = "EKS 클러스터 엔드포인트"
+  type        = string
+  default     = ""
+}
+
+variable "eks_cluster_ca_data" {
+  description = "EKS 클러스터 인증 기관 데이터"
+  type        = string
+  default     = ""
+}
+
+variable "region" {
+  description = "AWS 리전"
+  type        = string
 }

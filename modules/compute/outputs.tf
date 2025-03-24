@@ -53,10 +53,10 @@ output "node_group_status" {
 }
 
 # 생성된 네임스페이스
-output "kubernetes_namespace" {
-  description = "생성된 Kubernetes 네임스페이스"
-  value       = kubernetes_namespace.backend.metadata[0].name
-}
+# output "kubernetes_namespace" {
+#   description = "생성된 Kubernetes 네임스페이스"
+#   value       = kubernetes_namespace.backend.metadata[0].name
+# }
 
 # OIDC 프로바이더 ARN
 output "oidc_provider_arn" {
@@ -74,4 +74,10 @@ output "oidc_provider_url" {
 output "lb_controller_role_arn" {
   description = "AWS Load Balancer Controller에 사용되는 IAM 역할 ARN"
   value       = aws_iam_role.lb_controller.arn
+}
+
+# AWS Load Balancer Controller 상태 출력 (있는 경우)
+output "load_balancer_controller_status" {
+  description = "AWS Load Balancer Controller 설치 상태"
+  value       = helm_release.aws_load_balancer_controller.status
 }

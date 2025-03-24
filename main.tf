@@ -46,6 +46,11 @@ module "security" {
 
   # EKS 관련 설정
   eks_cluster_name = var.eks_cluster_name # EKS 클러스터 이름
+
+  # 네트워킹 모듈에 의존성 추가
+  depends_on = [
+    module.networking
+  ]
 }
 
 #---------------------------------------
@@ -70,9 +75,9 @@ module "compute" {
   node_instance_types = ["t3.medium"]
   node_disk_size      = 20
   node_capacity_type  = "ON_DEMAND"
-  node_desired_size   = 1
+  node_desired_size   = 2
   node_min_size       = 1
-  node_max_size       = 2
+  node_max_size       = 5
 
   # 엔드포인트 접근 설정
   endpoint_private_access = true
@@ -86,6 +91,12 @@ module "compute" {
 
   # 추가 태그
   tags = var.common_tags
+
+  # 보안 모듈에 의존성 추가
+  depends_on = [
+    module.networking,
+    module.security
+  ]
 }
 
 #---------------------------------------
@@ -93,10 +104,10 @@ module "compute" {
 # 프론트엔드 웹 애플리케이션을 위한 S3 버킷 및 CloudFront 배포 생성
 #---------------------------------------
 
-# # 기존 Route 53 호스팅 영역 데이터 소스로 가져오기
-# data "aws_route53_zone" "main" {
-#   name = "mydairy.my"
-# }
+# 기존 Route 53 호스팅 영역 데이터 소스로 가져오기
+data "aws_route53_zone" "main" {
+  name = var.domain_name # "mydairy.my"
+}
 
 # # 프론트엔드 모듈 호출
 # module "frontend" {
@@ -120,13 +131,15 @@ module "secrets" {
   prefix      = var.project_name
   common_tags = local.common_tags
 
-  # 민감 정보 (환경 변수에서 가져오거나 다른 안전한 방법으로 제공)
+  # 민감 정보
   db_username = var.db_username
   db_password = var.db_password
   db_name     = var.db_name
 
-  # EKS 노드에 시크릿 접근 권한 부여
-  # node_role_arn = module.compute.node_role_arn # 노드 역할 ARN 사용
+  # 네트워킹 모듈에 의존성 추가 (컴퓨팅 모듈에서 변경)
+  depends_on = [
+    module.networking
+  ]
 }
 
 #---------------------------------------
@@ -136,14 +149,18 @@ module "secrets" {
 module "db" {
   source = "./modules/db"
 
-  # Secrets Manager 모듈에 의존성 추가 (시크릿 생성 후 DB 생성)
-  depends_on = [module.secrets]
+  # 의존성 확장 - 네트워킹, 보안, 시크릿 모두 필요
+  depends_on = [
+    module.networking,
+    module.security,
+    module.secrets
+  ]
 
   prefix                     = var.project_name
   common_tags                = local.common_tags
   vpc_id                     = module.networking.vpc_id
-  subnet_ids                 = module.networking.private_subnet_ids # 프라이빗 서브넷에 DB 배치
-  eks_node_security_group_id = module.security.app_security_group_id  # security 모듈에서 보안 그룹 ID 사용
+  subnet_ids                 = module.networking.private_subnet_ids  # 프라이빗 서브넷에 DB 배치
+  eks_node_security_group_id = module.security.app_security_group_id # security 모듈에서 보안 그룹 ID 사용
 
   # Secrets Manager ARN 참조
   mysql_secret_arn = module.secrets.mysql_secret_arn
@@ -169,57 +186,58 @@ module "irsa" {
 
   prefix      = var.project_name
   common_tags = local.common_tags
-  
-  # EKS OIDC 제공자 URL을 직접 문자열로 구성하는 대신 출력값 사용
-  # 이렇게 하면 OIDC URL이 변경되더라도 코드를 수정할 필요가 없습니다
+
   eks_oidc_provider_url = module.compute.oidc_provider_url
-  
+
   service_account_name       = "myapp-sa"
   k8s_namespace              = "default"
-  policy_arns                = [module.secrets.secrets_access_policy_arn] # Secrets Manager 접근 정책
+  policy_arns                = [module.secrets.secrets_access_policy_arn]
   create_k8s_service_account = true
+
+  # 컴퓨팅과 시크릿 모듈에 의존성 추가
+  depends_on = [
+    module.compute,
+    module.secrets
+  ]
 }
 
 #---------------------------------------
-# CICD 모듈 호출 - ECR 저장소 및 ArgoCD 설정
+# CI/CD 모듈 호출
+# CI/CD 파이프라인 및 컨테이너 레지스트리 설정
 #---------------------------------------
 module "cicd" {
   source = "./modules/cicd"
 
-  # ECR 설정
-  ecr_name            = var.ecr_name
-  prefix              = var.project_name
-  common_tags         = local.common_tags
+  # 필수 변수 추가
+  prefix      = var.project_name
+  ecr_name    = "${var.project_name}-ecr"
+  environment = var.environment
+  common_tags = local.common_tags
+  
+  # ECR 저장소 설정
   image_tag_mutability = "MUTABLE"
-  scan_on_push        = true
-  encryption_type     = "AES256"
+  scan_on_push         = true
   
   # ArgoCD 설정
-  install_argocd         = true
-  argocd_namespace       = "argocd"
-  argocd_chart_version   = "5.51.4"
+  install_argocd             = var.install_argocd
+  argocd_chart_version       = var.argocd_chart_version
   argocd_admin_password_hash = var.argocd_admin_password_hash
   
-  # ECR 이미지 설정
-  frontend_image_tag     = "latest"
-  ecr_auth_token         = data.aws_ecr_authorization_token.token.password
+  # Helm 차트 저장소 URL
+  helm_charts_repo_url = var.helm_charts_repo_url
   
-  # 인그레스 설정
-  ingress_host           = "argocd.${var.domain_name}"
-  frontend_ingress_host  = "frontend.${var.domain_name}"
+  # 클러스터 상태 전달
+  cluster_exists = local.eks_cluster_exists
   
-  # Git 저장소 설정 (선택적)
-  git_repo_url           = var.frontend_git_repo_url
-  git_target_revision    = var.frontend_git_revision
-  frontend_namespace     = "frontend"
+  # AWS 리전 설정
+  region = var.aws_region
   
-  # 모듈 의존성
+  # 의존성 확장 - IRSA 추가
   depends_on = [
-    module.compute  # EKS 클러스터가 먼저 생성되어야 함
+    module.compute, // EKS 클러스터가 준비된 후에 실행
+    module.irsa
   ]
 }
-
-# 별도의 frontend_ecr 모듈은 제거
 
 # ECR 인증 토큰 가져오기
 data "aws_ecr_authorization_token" "token" {

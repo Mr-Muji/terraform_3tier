@@ -1,75 +1,40 @@
-# ArgoCD 커스텀 values 파일
-global:
-  image:
-    tag: latest
+# ArgoCD Helm 차트 설정값 (필수 설정만 포함)
 
+# 관리자 계정 및 서버 설정
 server:
+  # 개발 환경용 인증 우회 설정
   extraArgs:
-    - --insecure  # SSL 종료를 인그레스에서 처리하도록 설정
-
+    - --insecure
+  
+  # 인그레스 설정
   ingress:
     enabled: ${ingress_enabled}
     hosts:
       - ${ingress_host}
-    annotations: ${ingress_annotations}
     ingressClassName: ${ingress_class}
+    annotations: ${ingress_annotations}
 
+# 보안 설정
 configs:
   secret:
-    argocdServerAdminPassword: ${admin_password_hash}
+    # 관리자 비밀번호 해시 사용
+    argocdServerAdminPassword: "${admin_password_hash}"
+  
+  # Git 저장소 설정
+  repositories:
+    # Helm 차트 저장소 설정
+    helm-charts:
+      url: "${helm_charts_repo_url}"
+      type: git
+      # insecure: "true"
 
-  cm:
-    timeout.reconciliation: 180s
-    resource.compareoptions: |
-      ignoreAggregatedRoles: true
-    # ECR 인증 설정
-    repositories: |
-      - type: helm
-        url: https://charts.bitnami.com/bitnami
-        name: bitnami
-      - type: helm
-        url: https://kubernetes.github.io/ingress-nginx
-        name: ingress-nginx
+  # ECR 접근을 위한 크레덴셜 템플릿
+  credentialTemplates:
+    aws-ecr:
+      url: https://{{.awsAccountID}}.dkr.ecr.{{.awsRegion}}.amazonaws.com
+      password: "{{.awsCredentials}}"
+      username: AWS
 
-# Prometheus 메트릭 활성화
-prometheus:
-  enabled: true
-  serviceMonitor:
-    enabled: false
-
-# 리소스 제한 설정
-controller:
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
-
-server:
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
-
-repoServer:
-  resources:
-    limits:
-      cpu: 300m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
-
-applicationSet:
-  resources:
-    limits:
-      cpu: 300m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi 
+# RBAC 설정
+rbac:
+  policy.default: role:admin

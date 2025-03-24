@@ -60,40 +60,50 @@ provider "aws" {
   # assume_role { ... }     # 다른 계정의 역할 수임 (필요 시 구성)
 }
 
-# Kubernetes Provider 설정
-provider "kubernetes" {
-  host                   = module.compute.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.compute.cluster_certificate_authority_data)
+# 안전한 접근을 위해 condition 추가
+locals {
+  # EKS 클러스터가 존재하는지 확인
+  eks_cluster_exists = can(module.compute.cluster_id) && can(module.compute.cluster_endpoint) && can(module.compute.cluster_certificate_authority_data)
+  
+  # 안전한 클러스터 엔드포인트 
+  safe_cluster_endpoint = local.eks_cluster_exists ? module.compute.cluster_endpoint : "https://localhost:8443"
+  
+  # 안전한 클러스터 CA 인증서
+  safe_cluster_ca_cert = local.eks_cluster_exists ? base64decode(module.compute.cluster_certificate_authority_data) : null
+  
+  # 안전한 클러스터 이름
+  safe_cluster_name = local.eks_cluster_exists ? module.compute.cluster_id : "dummy-cluster"
+}
 
-  # AWS 인증 사용 (aws-cli 통해 인증)
+# 쿠버네티스 프로바이더 - EKS 클러스터가 생성된 후에만 활성화
+provider "kubernetes" {
+  host                   = local.safe_cluster_endpoint
+  cluster_ca_certificate = local.safe_cluster_ca_cert
+  
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
     args = [
-      "eks",
-      "get-token",
-      "--cluster-name",
-      module.compute.cluster_id,
-      "--region",
-      var.region
+      "eks", 
+      "get-token", 
+      "--cluster-name", 
+      local.safe_cluster_name, 
+      "--region", 
+      var.aws_region
     ]
   }
+  # 의존성 설정 추가
 }
 
 #---------------------------------------
 # Helm Provider 설정
 #---------------------------------------
+# Helm 프로바이더 - EKS 클러스터가 생성된 후에만 활성화
 provider "helm" {
   kubernetes {
-    # EKS 클러스터의 API 서버 엔드포인트를 사용하여 연결합니다
-    host                   = module.compute.cluster_endpoint
+    host                   = local.safe_cluster_endpoint
+    cluster_ca_certificate = local.safe_cluster_ca_cert
     
-    # 클러스터 인증서를 사용하여 TLS 통신을 검증합니다
-    # base64로 인코딩된 인증서를 디코딩합니다
-    cluster_ca_certificate = base64decode(module.compute.cluster_certificate_authority_data)
-    
-    # AWS EKS 인증 방식을 사용합니다
-    # aws-cli를 통해 EKS 토큰을 가져옵니다
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
@@ -101,9 +111,9 @@ provider "helm" {
         "eks",
         "get-token",
         "--cluster-name",
-        module.compute.cluster_id,
+        local.safe_cluster_name,
         "--region",
-        var.region
+        var.aws_region
       ]
     }
   }

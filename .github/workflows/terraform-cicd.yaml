@@ -1,77 +1,66 @@
 name: "테라폼 CI/CD"
-
 # 워크플로우 트리거 설정
 on:
   push:
     branches:
-      - main2    # main 브랜치에 푸시될 때 워크플로우 실행 (CD 트리거)
+      - main # main 브랜치에 푸시될 때 워크플로우 실행 (CD 트리거)
   pull_request:
     branches:
-      - main    # main 브랜치로 PR이 생성/업데이트될 때 워크플로우 실행 (CI 트리거)
-
+      - main # main 브랜치로 PR이 생성/업데이트될 때 워크플로우 실행 (CI 트리거)
 # GitHub 액션 권한 설정
 permissions:
-  contents: read             # 저장소 내용을 읽을 수 있는 권한
-  pull-requests: write       # PR에 댓글을 남길 수 있는 권한
-
+  contents: read # 저장소 내용을 읽을 수 있는 권한
+  pull-requests: write # PR에 댓글을 남길 수 있는 권한
 jobs:
   terraform:
     name: "테라폼 작업"
-    runs-on: ubuntu-latest   # Ubuntu 최신 버전에서 작업 실행
-    
+    runs-on: ubuntu-latest # Ubuntu 최신 버전에서 작업 실행
     # AWS 자격 증명 및 환경 변수 설정
     # 이 환경 변수들은 테라폼이 AWS 리소스에 접근할 때 사용됨
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}           # AWS 액세스 키
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}   # AWS 시크릿 키
-      AWS_REGION: "ap-northeast-2"                                  # AWS 리전 (서울)
-      TF_VAR_environment: "dev"                                     # 테라폼 환경 변수 (개발 환경)
-    
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} # AWS 액세스 키
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # AWS 시크릿 키
+      AWS_REGION: "ap-northeast-2" # AWS 리전 (서울)
+      TF_VAR_environment: "dev" # 테라폼 환경 변수 (개발 환경)
     steps:
       # ----- CI 단계 시작 (코드 품질 및 유효성 검사) -----
-      
+
       # 소스 코드 체크아웃
       - name: 코드 체크아웃
-        uses: actions/checkout@v3    # GitHub 액션 공식 체크아웃 액션 v3 사용
-
+        uses: actions/checkout@v3 # GitHub 액션 공식 체크아웃 액션 v3 사용
       # 테라폼 CLI 설치
       - name: 테라폼 설정
-        uses: hashicorp/setup-terraform@v2   # HashiCorp 공식 테라폼 설정 액션
+        uses: hashicorp/setup-terraform@v2 # HashiCorp 공식 테라폼 설정 액션
         with:
-          terraform_version: 1.11.2  # 특정 테라폼 버전 지정 (프로젝트 요구사항에 맞게 수정)
-
+          terraform_version: 1.11.2 # 특정 테라폼 버전 지정 (프로젝트 요구사항에 맞게 수정)
       # 테라폼 초기화 - 공급자 다운로드 및 백엔드 구성
       - name: 테라폼 초기화
         id: init
-        run: terraform init   # S3 백엔드 구성 및 모듈/공급자 초기화
-
+        run: terraform init # S3 백엔드 구성 및 모듈/공급자 초기화
       # 테라폼 코드 포맷 검사 - 코드 스타일 일관성 확인
       - name: 테라폼 포맷 확인
-        id: fmt    
-        run: terraform fmt -check    # 포맷 오류가 있으면 종료 코드 반환
-        continue-on-error: true      # 포맷 오류가 있어도 워크플로우 계속 진행
-
+        id: fmt
+        run: terraform fmt -check # 포맷 오류가 있으면 종료 코드 반환
+        continue-on-error: true # 포맷 오류가 있어도 워크플로우 계속 진행
       # 테라폼 구성 유효성 검사 - 문법 및 타입 오류 확인
       - name: 테라폼 유효성 검사
         id: validate
-        run: terraform validate -no-color   # 유효성 검사 수행 (색상 없이 출력)
-
+        run: terraform validate -no-color # 유효성 검사 수행 (색상 없이 출력)
       # 테라폼 계획 생성 - 변경 예정 사항 미리보기
       # PR일 때만 계획 실행 (CI 단계)
       - name: 테라폼 계획
         id: plan
-        if: github.event_name == 'pull_request'   # PR 이벤트일 때만 실행
-        run: terraform plan -no-color              # 변경 사항 계획 생성
-        continue-on-error: true                    # 계획 실패해도 워크플로우 계속 진행
-
+        if: github.event_name == 'pull_request' # PR 이벤트일 때만 실행
+        run: terraform plan -no-color # 변경 사항 계획 생성
+        continue-on-error: true # 계획 실패해도 워크플로우 계속 진행
       # PR에 계획 결과 댓글 달기 - 리뷰어가 변경 사항 확인 가능
       - name: PR에 계획 결과 업데이트
-        uses: actions/github-script@v6             # GitHub API 스크립트 실행 액션
-        if: github.event_name == 'pull_request'    # PR 이벤트일 때만 실행
+        uses: actions/github-script@v6 # GitHub API 스크립트 실행 액션
+        if: github.event_name == 'pull_request' # PR 이벤트일 때만 실행
         env:
-          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"   # 계획 출력 결과 저장
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}" # 계획 출력 결과 저장
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}   # GitHub API 토큰
+          github-token: ${{ secrets.GITHUB_TOKEN }} # GitHub API 토큰
           script: |
             const output = `#### 테라폼 초기화 ⚙️\`${{ steps.init.outcome }}\`
             #### 테라폼 포맷 확인 🖌\`${{ steps.fmt.outcome }}\`
@@ -94,15 +83,13 @@ jobs:
               repo: context.repo.repo,
               body: output
             })
-      
-      # ----- CD 단계 시작 (변경 사항 적용) -----
-      
       # main 브랜치 푸시 시 변경사항 적용 (실제 인프라 변경)
       - name: 테라폼 적용
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'   # main 브랜치 푸시 이벤트일 때만 실행
-        run: terraform apply -auto-approve   # 자동 승인으로 변경 사항 적용 (실제 AWS 리소스 생성/수정/삭제)
-        # 주의: 이 단계에서 실제 인프라가 변경됩니다!
+        # ----- CD 단계 시작 (변경 사항 적용) -----
 
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' # main 브랜치 푸시 이벤트일 때만 실행
+        run: terraform apply -auto-approve # 자동 승인으로 변경 사항 적용 (실제 AWS 리소스 생성/수정/삭제)
+        # 주의: 이 단계에서 실제 인프라가 변경됩니다!
       # 실패 시 롤백
       - name: 실패 시 롤백
         if: failure() && github.ref == 'refs/heads/main' && github.event_name == 'push'

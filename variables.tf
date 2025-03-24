@@ -234,6 +234,13 @@ variable "ecr_name" {
   default     = "3tier-ecr"
 }
 
+variable "argocd_admin_password" {
+  description = "ArgoCD 관리자 비밀번호 (평문)"
+  type        = string
+  sensitive   = true
+  default     = "admin"  # 기본값 'admin' 설정
+}
+
 variable "argocd_admin_password_hash" {
   description = "ArgoCD 관리자 비밀번호 해시 (bcrypt 형식)"
   type        = string
@@ -256,5 +263,27 @@ variable "frontend_git_revision" {
 variable "domain_name" {
   description = "사용할 도메인 이름"
   type        = string
-  default     = "example.com"
+  default     = "mydairy.my"
+}
+
+# App of Apps 변수
+variable "helm_charts_repo_url" {
+  description = "애플리케이션 Helm 차트가 저장된 Git 저장소 URL"
+  type        = string
+  default     = "https://github.com/Mr-Muji/3tier-manifest.git"
+}
+
+#---------------------------------------
+# ArgoCD 설정 변수
+#---------------------------------------
+variable "install_argocd" {
+  description = "ArgoCD 설치 여부"
+  type        = bool
+  default     = true
+}
+
+variable "argocd_chart_version" {
+  description = "설치할 ArgoCD Helm 차트 버전"
+  type        = string
+  default     = "5.51.4"
 }

@@ -148,22 +148,24 @@ resource "aws_iam_role_policy_attachment" "node_AmazonEKS_CNI_Policy" {
   role       = aws_iam_role.node.name
 }
 
-# CloudWatch 관찰성 애드온 설치 (선택사항)
+# CloudWatch Observability는 Load Balancer Controller 이후에 설치
 resource "aws_eks_addon" "cw_observability" {
   count = var.enable_cloudwatch_observability ? 1 : 0
-
+  
   cluster_name = aws_eks_cluster.this.name
   addon_name   = "amazon-cloudwatch-observability"
-
-  # 충돌 해결 방법 설정
+  
+  # 충돌 해결 정책
   resolve_conflicts_on_create = "OVERWRITE"
-
-  tags = {
-    Environment = var.environment
-  }
-
-  # 클러스터가 완전히 생성된 후에 애드온 설치
-  depends_on = [aws_eks_cluster.this, aws_eks_node_group.general_purpose]
+  resolve_conflicts_on_update = "PRESERVE"
+  
+  # Load Balancer Controller Add-on 대신 Helm 차트 의존성으로 변경
+  depends_on = [
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.coredns,
+    aws_eks_addon.kube_proxy,
+    helm_release.aws_load_balancer_controller  # Add-on 대신 Helm 차트 참조
+  ]
 }
 
 # VPC CNI 애드온 - 네트워킹
@@ -302,25 +304,25 @@ resource "aws_eks_node_group" "general_purpose" {
   # 노드 그룹 업데이트 시 새 노드 그룹 생성 후 기존 노드 그룹 삭제
   lifecycle {
     create_before_destroy = true
-    ignore_changes        = [scaling_config[0].desired_size]
+    ignore_changes        = [scaling_config[0].desired_size] # 노드 그룹 필수 설정. 변경시 무중단 배포와 상태 불안정 방지를 위한 설정임. 원하는 사이즈를 변경해도 안바뀜.
   }
 }
 
 #---------------------------------------
 # Kubernetes 네임스페이스 생성
 #---------------------------------------
-resource "kubernetes_namespace" "backend" {
-  depends_on = [aws_eks_cluster.this]
+# resource "kubernetes_namespace" "backend" {
+#   depends_on = [aws_eks_cluster.this]
   
-  metadata {
-    name = var.kubernetes_namespace
+#   metadata {
+#     name = var.kubernetes_namespace
     
-    labels = {
-      "managed-by" = "terraform"
-      "environment" = var.environment
-    }
-  }
-}
+#     labels = {
+#       "managed-by" = "terraform"
+#       "environment" = var.environment
+#     }
+#   }
+# }
 
 #---------------------------------------
 # AWS Load Balancer Controller IAM 역할 및 정책
@@ -420,8 +422,8 @@ resource "helm_release" "aws_load_balancer_controller" {
   # 설치할 네임스페이스 - 시스템 구성요소는 kube-system에 설치
   namespace = "kube-system"
   
-  # 차트 버전 - 특정 버전을 명시하면 재현 가능한 배포 보장
-  version = "1.8.0"  # v2.12.0 컨트롤러와 호환되는 차트 버전
+  # 특정 버전 지정 제거 - 최신 호환 버전 사용
+  # version = "1.8.0"  # 특정 버전 주석 처리
   
   # 설치 타임아웃 - 큰 클러스터에서는 설치에 시간이 더 걸릴 수 있음
   timeout = 900  # 15분

@@ -63,7 +63,7 @@ variable "additional_security_group_ids" {
 
 # CloudWatch 관찰성 활성화 여부
 variable "enable_cloudwatch_observability" {
-  description = "CloudWatch 관찰성 애드온 활성화 여부"
+  description = "Amazon CloudWatch Observability 활성화 여부"
   type        = bool
   default     = true
 }
@@ -104,37 +104,31 @@ variable "node_capacity_type" {
 variable "node_desired_size" {
   description = "EKS 노드 그룹의 원하는 노드 수"
   type        = number
-  default     = 1
+  # default     = 1
 }
 
 variable "node_min_size" {
   description = "EKS 노드 그룹의 최소 노드 수"
   type        = number
-  default     = 1
+  # default     = 1
 }
 
 variable "node_max_size" {
   description = "EKS 노드 그룹의 최대 노드 수"
   type        = number
-  default     = 2
+  # default     = 2
 }
 
 # Kubernetes 네임스페이스
-variable "kubernetes_namespace" {
-  description = "생성할 Kubernetes 네임스페이스"
-  type        = string
-  default     = "backend"
-}
+# variable "kubernetes_namespace" {
+#   description = "생성할 Kubernetes 네임스페이스"
+#   type        = string
+#   default     = "backend"
+# }
 
 # AWS Load Balancer Controller 설정
 variable "enable_aws_load_balancer_controller" {
-  description = "AWS Load Balancer Controller 설치 여부"
+  description = "AWS Load Balancer Controller 활성화 여부 (Helm 차트 방식)"
   type        = bool
   default     = true
-}
-
-variable "aws_load_balancer_controller_chart_version" {
-  description = "AWS Load Balancer Controller Helm 차트 버전"
-  type        = string
-  default     = "1.7.1"  # 사용하려는 차트 버전으로 업데이트
 }
