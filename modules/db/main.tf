@@ -4,6 +4,20 @@
  * AWS Secrets Manager에서 자격 증명을 가져와 사용합니다.
  */
 
+# AWS Secrets Manager에서 데이터베이스 보안 정보 가져오기
+data "aws_secretsmanager_secret" "mysql_secret" {
+  arn = var.mysql_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "mysql_secret_version" {
+  secret_id = data.aws_secretsmanager_secret.mysql_secret.id
+}
+
+locals {
+  # JSON 형식의 시크릿을 파싱하여 데이터베이스 정보 추출
+  db_credentials = jsondecode(data.aws_secretsmanager_secret_version.mysql_secret_version.secret_string)
+}
+
 # 데이터베이스 인스턴스 파라미터 그룹 (최소 설정)
 resource "aws_db_parameter_group" "mysql" {
   name        = "${var.prefix}-mysql-params"
@@ -58,22 +72,13 @@ resource "aws_security_group" "mysql" {
   }
   
   tags = merge(var.common_tags, {
-    Name = "${var.prefix}-mysql-sg"
+    Name = "mysql-${var.prefix}-sg"
   })
-}
-
-# Secrets Manager에서 데이터베이스 시크릿 가져오기
-data "aws_secretsmanager_secret_version" "mysql" {
-  secret_id = var.mysql_secret_arn
-}
-
-locals {
-  db_credentials = jsondecode(data.aws_secretsmanager_secret_version.mysql.secret_string)
 }
 
 # RDS MySQL 인스턴스 (최소 스펙)
 resource "aws_db_instance" "mysql" {
-  identifier        = "${var.prefix}-mysql"
+  identifier        = "mysql-${var.prefix}"
   engine            = "mysql"
   engine_version    = var.mysql_version
   instance_class    = var.db_instance_class
@@ -93,9 +98,9 @@ resource "aws_db_instance" "mysql" {
   publicly_accessible    = false
   multi_az               = var.multi_az
   
-  # 최소 설정
-  parameter_group_name    = aws_db_parameter_group.mysql.name
+  # 백업 설정 (최소화)
   backup_retention_period = var.backup_retention_period
+  backup_window           = null  # 백업 비활성화시 불필요
   skip_final_snapshot     = var.skip_final_snapshot
   deletion_protection     = var.deletion_protection
   

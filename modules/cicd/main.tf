@@ -3,182 +3,108 @@
  * 
  * 이 모듈은 다음 기능을 제공합니다:
  * 1. AWS ECR 저장소 - 백엔드 및 프론트엔드 이미지 저장
- * 2. ArgoCD - 쿠버네티스 배포를 위한 GitOps 도구
- * 3. ECR과 ArgoCD 간의 통합 - 프론트엔드 애플리케이션 배포
- * 
- * 작성자: 인프라팀
- * 최종 수정일: 2023-08-01
+ * 2. 프론트엔드 애플리케이션 배포 - 03단계에서 설치된 ArgoCD 활용
  */
 
 #-------------------------------------------------------
-# 1. AWS ECR 저장소 - 백엔드 및 프론트엔드 도커 이미지 저장을 위한 리소스
+# CICD 모듈 - ECR 저장소 및 프론트엔드 애플리케이션 배포
 #-------------------------------------------------------
 
-# 백엔드 ECR 저장소 생성
-resource "aws_ecr_repository" "backend_repo" {
-  name                 = "${var.ecr_name}-backend"  # 저장소 이름에 backend 접미사 추가
-  image_tag_mutability = var.image_tag_mutability   # 이미지 태그 변경 가능 여부 (MUTABLE/IMMUTABLE)
-
-  # 이미지 취약점 스캔 설정
-  image_scanning_configuration {
-    scan_on_push = var.scan_on_push  # 이미지 업로드 시 자동 스캔 여부
-  }
-
-  # 저장소 암호화 설정
-  encryption_configuration {
-    encryption_type = var.encryption_type  # AES256 또는 KMS
-  }
-
-  # 리소스 태그 설정
-  tags = merge(var.common_tags, {
-    Name = "${var.ecr_name}-backend"
-  })
-
-  force_delete = true  # 이미지가 있어도 강제 삭제
-}
+#-------------------------------------------------------
+# ECR 저장소 생성 및 관리
+#-------------------------------------------------------
 
 # 프론트엔드 ECR 저장소 생성
 resource "aws_ecr_repository" "frontend_repo" {
-  name                 = "${var.ecr_name}-frontend"  # 저장소 이름에 frontend 접미사 추가
+  name                 = "${var.prefix}-frontend"
   image_tag_mutability = var.image_tag_mutability
-
-  # 이미지 취약점 스캔 설정
+  
   image_scanning_configuration {
     scan_on_push = var.scan_on_push
   }
+  
+  # 강제 삭제 설정 (개발환경에서만 권장)
+  force_delete = var.ecr_force_delete
+  
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.prefix}-frontend-repo"
+      Component = "frontend"
+    }
+  )
+}
 
-  # 저장소 암호화 설정
-  encryption_configuration {
-    encryption_type = var.encryption_type
+# 백엔드 ECR 저장소 생성
+resource "aws_ecr_repository" "backend_repo" {
+  name                 = "${var.prefix}-backend"
+  image_tag_mutability = var.image_tag_mutability
+  
+  image_scanning_configuration {
+    scan_on_push = var.scan_on_push
   }
-
-  # 리소스 태그 설정
-  tags = merge(var.common_tags, {
-    Name = "${var.ecr_name}-frontend"
-  })
-
-  force_delete = true  # 이미지가 있어도 강제 삭제
+  
+  # 강제 삭제 설정 (개발환경에서만 권장)
+  force_delete = var.ecr_force_delete
+  
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.prefix}-backend-repo"
+      Component = "backend"
+    }
+  )
 }
 
-# 백엔드 저장소 수명 주기 정책 - 이미지 자동 정리
-resource "aws_ecr_lifecycle_policy" "backend_repo_policy" {
-  repository = aws_ecr_repository.backend_repo.name
-
-  policy = jsonencode({
-    rules = [
-      {
-        rulePriority = 1
-        description  = "최신 이미지 10개만 유지하고 나머지는 자동 삭제"
-        selection = {
-          tagStatus     = "any"           # 모든 태그에 적용
-          countType     = "imageCountMoreThan"
-          countNumber   = 10              # 10개 이상일 때 가장 오래된 이미지 삭제
-        }
-        action = {
-          type = "expire"                 # 만료 처리
-        }
-      }
-    ]
-  })
-}
-
-# 프론트엔드 저장소 수명 주기 정책 - 이미지 자동 정리
-resource "aws_ecr_lifecycle_policy" "frontend_repo_policy" {
+# 프론트엔드 ECR 수명주기 정책
+resource "aws_ecr_lifecycle_policy" "frontend_lifecycle" {
   repository = aws_ecr_repository.frontend_repo.name
 
   policy = jsonencode({
-    rules = [
-      {
-        rulePriority = 1
-        description  = "최신 이미지 10개만 유지하고 나머지는 자동 삭제"
-        selection = {
-          tagStatus     = "any"
-          countType     = "imageCountMoreThan"
-          countNumber   = 10
-        }
-        action = {
-          type = "expire"
-        }
+    rules = [{
+      rulePriority = 1
+      description  = "최신 이미지 ${var.ecr_max_images}개만 유지"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = var.ecr_max_images
       }
-    ]
+      action = {
+        type = "expire"
+      }
+    }]
+  })
+}
+
+# 백엔드 ECR 수명주기 정책
+resource "aws_ecr_lifecycle_policy" "backend_lifecycle" {
+  repository = aws_ecr_repository.backend_repo.name
+
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "최신 이미지 ${var.ecr_max_images}개만 유지"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = var.ecr_max_images
+      }
+      action = {
+        type = "expire"
+      }
+    }]
   })
 }
 
 #-------------------------------------------------------
-# 2. ArgoCD 설치 및 기본 설정
+# 2. 외부 ArgoCD 인스턴스 참조 (이미 설치됨)
 #-------------------------------------------------------
 
-# ArgoCD 네임스페이스 생성
-resource "kubernetes_namespace" "argocd" {
-  count = var.install_argocd ? 1 : 0  # install_argocd 변수가 true일 때만 생성
-
-  provider = kubernetes.post_cluster
-
+# 외부에서 설치된 ArgoCD 네임스페이스 참조
+data "kubernetes_namespace" "argocd" {
   metadata {
-    name = var.argocd_namespace  # 네임스페이스 이름 (기본값: argocd)
-    
-    labels = {
-      "managed-by" = "terraform"  # 관리 도구 표시
-    }
-    
-    # 삭제 시 문제 방지를 위한 설정
-    annotations = {
-      "argocd.argoproj.io/sync-options" = "Prune=false"
-      "kubectl.kubernetes.io/deletion-grace-period" = "30"
-    }
+    name = var.argocd_namespace
   }
-  
-  # 삭제 시 오류 방지
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# ArgoCD 설치 - Helm 차트 사용
-resource "helm_release" "argocd" {
-  count = var.install_argocd ? 1 : 0
-
-  name       = "argocd"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argo-cd"
-  version    = var.argocd_chart_version
-  namespace  = kubernetes_namespace.argocd[0].metadata[0].name
-  
-  timeout    = 1800  # 30분 (설치 시간이 오래 걸릴 수 있음)
-  
-  # templates/argocd-values.yaml 파일 사용
-  values = [
-    templatefile("${path.module}/templates/argocd-values.yaml", {
-      ingress_enabled     = var.ingress_enabled
-      domain_name         = var.domain_name
-      ingress_host        = var.ingress_host
-      ingress_class       = var.ingress_class
-      ingress_annotations = jsonencode(merge(var.ingress_annotations, {
-        "alb.ingress.kubernetes.io/group.name" = "argocd"
-      }))
-      helm_charts_repo_url = var.helm_charts_repo_url
-      admin_password_hash = var.argocd_admin_password_hash
-    })
-  ]
-  
-  # 충돌 해결 옵션
-  atomic          = true  # 설치 실패 시 자동 롤백
-  cleanup_on_fail = true  # 실패한 설치의 리소스 정리
-  wait            = true  # 모든 리소스가 준비될 때까지 대기
-  
-  # EKS 클러스터가 준비된 후에만 설치
-  depends_on = [
-    kubernetes_namespace.argocd
-  ]
-}
-
-# ArgoCD CRD 적용 후 대기 시간 설정
-# CRD가 완전히 등록되어야 Application 리소스를 생성할 수 있음
-resource "time_sleep" "wait_for_crds" {
-  count = var.install_argocd ? 1 : 0
-  
-  depends_on = [helm_release.argocd]
-  create_duration = "30s"  # 30초 대기 (환경에 따라 조정 필요)
 }
 
 #-------------------------------------------------------
@@ -187,86 +113,53 @@ resource "time_sleep" "wait_for_crds" {
 
 # 프론트엔드 네임스페이스 생성
 resource "kubernetes_namespace" "frontend" {
-  count = var.install_argocd ? 1 : 0
-
   metadata {
-    name = var.frontend_namespace  # 네임스페이스 이름 (기본값: frontend)
-    
-    labels = {
-      "managed-by" = "terraform"
-      "app"        = "frontend"
-    }
-    
-    # 삭제 시 문제 방지를 위한 설정
-    annotations = {
-      "kubectl.kubernetes.io/deletion-grace-period" = "30"
-    }
-  }
-
-  depends_on = [
-    helm_release.argocd  # ArgoCD 설치 후 생성
-  ]
-  
-  # 삭제 시 오류 방지
-  lifecycle {
-    create_before_destroy = true
+    name = var.frontend_namespace
   }
 }
 
 # AWS ECR 접근을 위한 이미지 풀 시크릿 생성
-# 쿠버네티스에서 프라이빗 ECR 저장소의 이미지를 가져오기 위해 필요
 resource "kubernetes_secret" "ecr_auth" {
-  count = var.install_argocd ? 1 : 0
-  
   metadata {
-    name      = "ecr-auth"  # 시크릿 이름
-    namespace = kubernetes_namespace.frontend[0].metadata[0].name
+    name      = "ecr-auth"
+    namespace = kubernetes_namespace.frontend.metadata[0].name
   }
 
-  type = "kubernetes.io/dockerconfigjson"  # Docker 레지스트리 인증 타입
+  type = "kubernetes.io/dockerconfigjson"
 
-  # ECR 인증 정보 구성
   data = {
     ".dockerconfigjson" = jsonencode({
       auths = {
         "${aws_ecr_repository.frontend_repo.repository_url}" = {
-          auth = base64encode("AWS:${var.ecr_auth_token}")  # AWS ECR 인증 토큰
+          auth = base64encode("AWS:${var.ecr_auth_token}")
         }
       }
     })
   }
 
-  depends_on = [
-    kubernetes_namespace.frontend
-  ]
+  depends_on = [kubernetes_namespace.frontend]
 }
 
-# ArgoCD Application 리소스 생성 (GitOps 파이프라인 구성)
+# 프론트엔드 애플리케이션 정의
 resource "kubernetes_manifest" "frontend_application" {
-  count = var.install_argocd && var.helm_charts_repo_url != "" ? 1 : 0
-  
-  provider = kubernetes.post_cluster
-
-  # Application 리소스 정의
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "Application"
     metadata = {
-      name      = "frontend"  # 애플리케이션 이름
-      namespace = kubernetes_namespace.argocd[0].metadata[0].name  # ArgoCD 네임스페이스
+      name      = "frontend-app"
+      namespace = data.kubernetes_namespace.argocd.metadata[0].name
+      finalizers = ["resources-finalizer.argocd.argoproj.io"]
     }
     spec = {
-      # 프로젝트 설정
-      project = "default"  # ArgoCD 프로젝트 (기본값: default)
+      project = "default"
       
       # 소스 설정
       source = {
-        # Git 저장소 설정
-        repoURL        = var.git_repo_url != "" ? var.git_repo_url : "https://github.com/argoproj/argocd-example-apps"
-        targetRevision = var.git_target_revision  # 브랜치 또는 태그
-        path           = var.git_repo_url != "" ? var.frontend_manifest_path : "guestbook"
-        
-        # Helm 차트 파라미터 - ECR 이미지 설정
+        repoURL        = var.git_repo_url  # Git 저장소 URL
+        targetRevision = var.git_target_revision  # Branch/Tag
+        path           = var.frontend_manifest_path  # 매니페스트 경로
+
+        # Helm 및 Kustomize 적용을 위한 추가 설정
         helm = {
           parameters = [
             {
@@ -276,6 +169,10 @@ resource "kubernetes_manifest" "frontend_application" {
             {
               name  = "image.tag"
               value = var.frontend_image_tag
+            },
+            {
+              name  = "ingress.host"
+              value = var.frontend_ingress_host
             }
           ]
         }
@@ -283,108 +180,11 @@ resource "kubernetes_manifest" "frontend_application" {
       
       # 배포 대상 설정
       destination = {
-        server    = "https://kubernetes.default.svc"  # 기본 쿠버네티스 API 서버
-        namespace = var.frontend_namespace            # 배포 네임스페이스
+        server    = "https://kubernetes.default.svc"  # 현재 클러스터
+        namespace = kubernetes_namespace.frontend.metadata[0].name
       }
       
       # 동기화 정책 설정
-      syncPolicy = {
-        automated = {
-          prune      = true       # 불필요한 리소스 자동 제거
-          selfHeal   = true       # 변경 사항 자동 복구
-          allowEmpty = false      # 빈 상태로 동기화 허용 안 함
-        }
-        syncOptions = [
-          "CreateNamespace=true"  # 네임스페이스 자동 생성
-        ]
-      }
-    }
-  }
-
-  # 의존성 설정
-  depends_on = [
-    helm_release.argocd,          # ArgoCD 설치 완료
-    kubernetes_namespace.frontend, # 프론트엔드 네임스페이스 생성
-    kubernetes_secret.ecr_auth,    # ECR 인증 시크릿 생성
-    time_sleep.wait_for_crds       # CRD 적용 대기
-  ]
-  
-  # 리소스 삭제 순서 관리 - 가장 먼저 삭제되도록 설정
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# EKS 클러스터 준비 대기
-resource "time_sleep" "wait_for_eks" {
-  count = var.install_argocd ? 1 : 0
-  
-  create_duration = "30s"  # 클러스터 준비를 위한 추가 대기 시간
-}
-
-# 안전한 초기화를 위한 null_resource 추가
-resource "null_resource" "wait_for_cluster" {
-  count = var.install_argocd ? 1 : 0
-
-  provisioner "local-exec" {
-    command = <<EOT
-      aws eks wait cluster-active --name ${var.eks_cluster_id} --region ${var.region}
-      aws eks update-kubeconfig --name ${var.eks_cluster_id} --region ${var.region}
-      kubectl wait --for=condition=available --timeout=5m -n kube-system deployment/coredns
-    EOT
-  }
-
-  # 실제 리소스에 대한 의존성으로 변경
-  depends_on = [time_sleep.wait_for_eks]
-}
-
-# ArgoCD App of Apps 루트 애플리케이션 생성
-resource "kubernetes_manifest" "root_application" {
-  # 클러스터 없이 첫 단계 배포 시 오류 방지
-  count = 0  # var.install_argocd && var.helm_charts_repo_url != "" ? 1 : 0
-  provider = kubernetes.post_cluster
-  
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "Application"
-    metadata = {
-      name      = "root-application"
-      namespace = kubernetes_namespace.argocd[0].metadata[0].name
-      # finalizer 제거하여 삭제 문제 방지
-      finalizers = []
-    }
-    spec = {
-      project = "default"
-      
-      # 소스 설정 - Helm 차트 저장소
-      source = {
-        repoURL        = var.helm_charts_repo_url  # 헬름 차트 저장소 URL
-        targetRevision = var.helm_charts_revision  # 브랜치 또는 태그
-        path           = var.helm_charts_repo_path  # 루트 애플리케이션 차트 경로
-        
-        # Helm 설정 - 환경 변수 전달
-        helm = {
-          values = yamlencode({
-            # 전역 환경 설정 - 모든 하위 앱에 전달됨
-            global = {
-              environment = var.environment
-              domain      = var.domain_name
-              repositories = {
-                frontend = aws_ecr_repository.frontend_repo.repository_url
-                backend  = aws_ecr_repository.backend_repo.repository_url
-              }
-            }
-          })
-        }
-      }
-      
-      # 배포 대상 설정
-      destination = {
-        server    = "https://kubernetes.default.svc"  # 현재 클러스터
-        namespace = "argocd"  # ArgoCD 네임스페이스
-      }
-      
-      # 동기화 정책 구조
       syncPolicy = {
         automated = {
           prune       = true
@@ -394,141 +194,95 @@ resource "kubernetes_manifest" "root_application" {
         syncOptions = [
           "CreateNamespace=true"
         ]
+        retry = {
+          limit = 5
+          backoff = {
+            duration    = "30s"
+            maxDuration = "2m"
+            factor      = 2
+          }
+        }
       }
     }
   }
-  
-  # 삭제 시 오류 방지
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes = [
-      manifest.metadata,
-      manifest.spec.source,
-      manifest.spec.destination
-    ]
-  }
 
-  # EKS 클러스터가 준비된 후에만 생성
-  depends_on = [
-    
-    helm_release.argocd,
-    time_sleep.wait_for_crds,
-    kubernetes_namespace.argocd,
-    time_sleep.wait_for_eks[0]  # 클러스터 준비 대기
-  ]
+  depends_on = [kubernetes_namespace.frontend]
 }
 
-# 아르고CD 인그레스 데이터 소스 수정
-data "kubernetes_ingress_v1" "argocd_ingress" {
-  count = var.install_argocd && var.ingress_enabled ? 1 : 0
-  
-  depends_on = [helm_release.argocd]
-  
-  metadata {
-    name      = "argocd-server"
-    namespace = kubernetes_namespace.argocd[0].metadata[0].name
-  }
-}
-
-# ArgoCD용 Route 53 DNS 레코드 생성 - 안전한 참조 처리
-resource "aws_route53_record" "argocd" {
-  count = var.install_argocd && var.ingress_enabled && var.zone_id != "" ? 1 : 0
-  
-  zone_id = var.zone_id
-  name    = var.ingress_host
-  type    = "CNAME"
-  ttl     = 300
-  
-  # 안전한 레코드 처리 (try 함수 사용)
-  records = try(
-    [data.kubernetes_ingress_v1.argocd_ingress[0].status[0].load_balancer[0].ingress[0].hostname],
-    ["dummy.${var.domain_name}"]
-  )
-  
-  # 삭제 시 의존성 문제 방지
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes = [records]
-  }
-}
-
-# 프론트엔드 인그레스 데이터 소스 수정
+# 프론트엔드 인그레스 데이터 소스
 data "kubernetes_ingress_v1" "frontend_ingress" {
-  count = var.install_argocd && var.zone_id != "" ? 1 : 0
-  
-  depends_on = [kubernetes_manifest.root_application]
-  
   metadata {
-    name      = "frontend"
-    namespace = kubernetes_namespace.frontend[0].metadata[0].name
+    name      = var.frontend_ingress_name
+    namespace = kubernetes_namespace.frontend.metadata[0].name
   }
+  
+  depends_on = [kubernetes_manifest.frontend_application]
 }
 
-# 프론트엔드용 Route 53 DNS 레코드 생성 - 안전한 참조 처리
-resource "aws_route53_record" "frontend" {
-  count = var.install_argocd && var.zone_id != "" ? 1 : 0
+# 프론트엔드 인그레스가 완전히 프로비저닝될 때까지 대기
+resource "time_sleep" "wait_for_frontend_ingress" {
+  depends_on = [data.kubernetes_ingress_v1.frontend_ingress]
+  create_duration = "10s"  # 더 긴 대기 시간 설정
+}
+
+# 로드 밸런서 ARN을 직접 가져오는 데이터 소스
+data "external" "get_lb_arn" {
+  count = var.zone_id != "" ? 1 : 0
+  
+  program = ["bash", "-c", <<-EOT
+    LB_NAME=$(kubectl get ingress -n ${kubernetes_namespace.frontend.metadata[0].name} ${var.frontend_ingress_name} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' | cut -d'.' -f1 | cut -d'-' -f1)
+    LB_ARN=$(aws elbv2 describe-load-balancers --region ${var.region} --names $LB_NAME --query 'LoadBalancers[0].LoadBalancerArn' --output text)
+    DNS_NAME=$(aws elbv2 describe-load-balancers --region ${var.region} --names $LB_NAME --query 'LoadBalancers[0].DNSName' --output text)
+    ZONE_ID=$(aws elbv2 describe-load-balancers --region ${var.region} --names $LB_NAME --query 'LoadBalancers[0].CanonicalHostedZoneId' --output text)
+    echo "{\"arn\":\"$LB_ARN\",\"dns_name\":\"$DNS_NAME\",\"zone_id\":\"$ZONE_ID\"}"
+  EOT
+  ]
+  
+  depends_on = [data.kubernetes_ingress_v1.frontend_ingress, time_sleep.wait_for_frontend_ingress]
+}
+
+# Route 53 Alias 레코드 생성 - 안전하게 처리
+resource "aws_route53_record" "frontend_alias" {
+  count = var.zone_id != "" && length(data.external.get_lb_arn) > 0 ? 1 : 0
   
   zone_id = var.zone_id
-  name    = var.frontend_ingress_host  # 이미 var.domain_name으로 변경됨
-  type    = "CNAME"
-  ttl     = 300
+  name    = var.frontend_ingress_host
+  type    = "A"
   
-  # 안전한 레코드 처리 (try 함수 사용)
-  records = try(
-    [data.kubernetes_ingress_v1.frontend_ingress[0].status[0].load_balancer[0].ingress[0].hostname],
-    ["dummy.${var.domain_name}"]
-  )
-  
-  # 삭제 시 의존성 문제 방지
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes = [records]
+  alias {
+    name                   = data.external.get_lb_arn[0].result.dns_name
+    zone_id                = data.external.get_lb_arn[0].result.zone_id
+    evaluate_target_health = true
   }
+  
+  depends_on = [data.external.get_lb_arn]
 }
 
-# ECR 저장소에 있는 이미지를 삭제하기 위한 리소스
-resource "null_resource" "ecr_cleanup" {
-  count = var.ecr_force_delete ? 1 : 0
-  
-  triggers = {
-    frontend_repo_name = aws_ecr_repository.frontend_repo.name
-    backend_repo_name = aws_ecr_repository.backend_repo.name
+# 백엔드 ECR 접근을 위한 이미지 풀 시크릿 생성
+resource "kubernetes_secret" "backend_ecr_auth" {
+  metadata {
+    name      = "backend-ecr-auth"
+    namespace = kubernetes_namespace.backend.metadata[0].name
   }
-  
-  # 삭제 전 ECR 이미지 정리
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOT
-      echo "ECR 이미지 정리 중..."
-      # 저장소 URL이 아닌 이름을 사용
-      aws ecr batch-delete-image --repository-name ${self.triggers.frontend_repo_name} --image-ids "$(aws ecr list-images --repository-name ${self.triggers.frontend_repo_name} --query 'imageIds[*]' --output json)" || true
-      aws ecr batch-delete-image --repository-name ${self.triggers.backend_repo_name} --image-ids "$(aws ecr list-images --repository-name ${self.triggers.backend_repo_name} --query 'imageIds[*]' --output json)" || true
-      echo "ECR 이미지 정리 완료"
-    EOT
+
+  type = "kubernetes.io/dockerconfigjson"
+
+  data = {
+    ".dockerconfigjson" = jsonencode({
+      auths = {
+        "${aws_ecr_repository.backend_repo.repository_url}" = {
+          auth = base64encode("AWS:${var.ecr_auth_token}")
+        }
+      }
+    })
   }
-  
-  depends_on = [
-    aws_ecr_repository.frontend_repo,
-    aws_ecr_repository.backend_repo
-  ]
+
+  depends_on = [kubernetes_namespace.backend]
 }
 
-# 쿠버네티스 네임스페이스 리소스 정리를 위한 null 리소스
-resource "null_resource" "argocd_cleanup" {
-  count = var.install_argocd ? 1 : 0
-  
-  # 삭제 전 ArgoCD 애플리케이션 정리
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOT
-      echo "ArgoCD 애플리케이션 정리 중..."
-      kubectl patch application root-application -n argocd --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' || true
-      kubectl delete application root-application -n argocd --cascade=foreground --wait=false || true
-      echo "ArgoCD 애플리케이션 정리 완료"
-    EOT
+# 백엔드 네임스페이스 생성
+resource "kubernetes_namespace" "backend" {
+  metadata {
+    name = var.backend_namespace
   }
-  
-  depends_on = [
-    kubernetes_manifest.root_application
-  ]
 }

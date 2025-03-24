@@ -57,8 +57,8 @@ resource "aws_security_group" "web_sg" {
 # 애플리케이션 서버와 컨테이너에 적용되는 보안 규칙
 #---------------------------------------
 resource "aws_security_group" "app_sg" {
-  name        = "SG_app_${var.project_name}"
-  description = "Security group for application tier - Controls traffic to/from application servers and containers"
+  name        = "${var.project_name}-app-sg"
+  description = "Application layer security group (for EKS nodes)"
   vpc_id      = var.vpc_id
 
   # 웹 계층에서 들어오는 애플리케이션 포트 트래픽 허용 (포트 8080)
@@ -93,10 +93,9 @@ resource "aws_security_group" "app_sg" {
 
   # 리소스 식별 및 관리를 위한 태그 추가
   tags = {
-    Name        = "SG_app_${var.project_name}"  # 식별을 위한 명확한 이름
-    Environment = var.environment               # 환경 구분 (dev, staging, prod)
-    Tier        = "Application"                 # 아키텍처 계층 정보
-    ManagedBy   = "Terraform"                   # 관리 도구 정보
+    Name        = "${var.project_name}-app-sg"
+    Environment = var.environment
+    Tier        = "App"
   }
 
   # 보안 그룹 변경 시 적용 전 대기 시간 설정
@@ -109,9 +108,9 @@ resource "aws_security_group" "app_sg" {
 # 데이터베이스 계층 보안 그룹
 # 데이터베이스 서버에 적용되는 보안 규칙
 #---------------------------------------
-resource "aws_security_group" "db_sg" {
-  name        = "SG_db_${var.project_name}"
-  description = "Security group for database tier - Controls traffic to/from database servers"
+resource "aws_security_group" "database_sg" {
+  name        = "${var.project_name}-database-sg"
+  description = "Database layer security group"
   vpc_id      = var.vpc_id
 
   # 애플리케이션 계층에서 들어오는 MySQL/Aurora 트래픽 허용 (포트 3306)
@@ -146,10 +145,9 @@ resource "aws_security_group" "db_sg" {
 
   # 리소스 식별 및 관리를 위한 태그 추가
   tags = {
-    Name        = "SG_db_${var.project_name}"  # 식별을 위한 명확한 이름
-    Environment = var.environment              # 환경 구분 (dev, staging, prod)
-    Tier        = "Database"                   # 아키텍처 계층 정보
-    ManagedBy   = "Terraform"                  # 관리 도구 정보
+    Name        = "${var.project_name}-database-sg"
+    Environment = var.environment
+    Tier        = "Database"
   }
 
   # 보안 그룹 변경 시 적용 전 대기 시간 설정
@@ -157,7 +155,6 @@ resource "aws_security_group" "db_sg" {
     create_before_destroy = true
   }
 }
-
 
 #---------------------------------------
 # 선택적: 추가 보안 그룹 - 기타 서비스용
@@ -215,4 +212,54 @@ resource "aws_iam_policy" "ecr_access_policy" {
       }
     ]
   })
+}
+
+# ALB 보안 그룹
+resource "aws_security_group" "alb_sg" {
+  name        = "${var.project_name}-alb-sg"
+  description = "Security group for ALB"
+  vpc_id      = var.vpc_id
+
+  # HTTP 트래픽 허용
+  ingress {
+    description = "Allow HTTP traffic"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTPS 트래픽 허용
+  ingress {
+    description = "Allow HTTPS traffic"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${var.project_name}-alb-sg"
+    Environment = var.environment
+    Tier        = "Public"
+  }
+}
+
+# 애플리케이션 계층과 ALB 간의 통신 규칙 추가
+resource "aws_security_group_rule" "app_from_alb" {
+  security_group_id        = aws_security_group.app_sg.id
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb_sg.id
+  description              = "Allow traffic from ALB to application tier"
 }

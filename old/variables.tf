@@ -292,4 +292,5 @@ variable "argocd_chart_version" {
 variable "eks_cluster_id" {
   description = "EKS 클러스터 ID - 의존성 주입용"
   type        = string
+  default     = ""  # 빈 문자열 기본값 추가
 }

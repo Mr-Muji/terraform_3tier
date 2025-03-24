@@ -28,15 +28,15 @@ variable "public_subnet_ids" {
   type        = list(string)
 }
 
-# NAT 서브넷 ID 목록 - 애플리케이션 계층 배포에 사용
-variable "nat_subnet_ids" {
-  description = "NAT 서브넷 ID 목록 - 애플리케이션 리소스 배포에 사용됩니다"
+# 프라이빗 서브넷 ID 목록 - 애플리케이션 계층 배포에 사용
+variable "private_subnet_ids" {
+  description = "프라이빗 서브넷 ID 목록 - 애플리케이션 리소스 배포에 사용됩니다"
   type        = list(string)
 }
 
-# 프라이빗 서브넷 ID 목록 - 데이터베이스 등 배포에 사용
-variable "private_subnet_ids" {
-  description = "프라이빗 서브넷 ID 목록 - 데이터베이스 및 내부 리소스 배포에 사용됩니다"
+# 데이터베이스 서브넷 ID 목록 - 데이터베이스 등 배포에 사용
+variable "database_subnet_ids" {
+  description = "데이터베이스 서브넷 ID 목록 - 데이터베이스 및 내부 리소스 배포에 사용됩니다"
   type        = list(string)
 }
 

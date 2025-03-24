@@ -256,12 +256,12 @@ resource "aws_eks_addon" "pod_identity_agent" {
 # EKS 노드 그룹 생성
 resource "aws_eks_node_group" "general_purpose" {
   cluster_name    = aws_eks_cluster.this.name
-  node_group_name = "general-purpose"
+  node_group_name = var.node_group_name
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
 
   # 인스턴스 타입 및 디스크 설정
-  instance_types = var.node_instance_types
+  instance_types = [var.node_instance_type]
   disk_size      = var.node_disk_size
 
   # 용량 타입 (ON_DEMAND 또는 SPOT)

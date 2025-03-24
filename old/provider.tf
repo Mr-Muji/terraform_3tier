@@ -105,12 +105,12 @@ provider "kubernetes" {
   }
 }
 # 쿠베 문제용
-provider "helm" {
-  kubernetes {
-    host = "https://localhost:8443"
-    insecure = true
-  }
-}
+# provider "helm" {
+#   kubernetes {
+#     host = "https://localhost:8443"
+#     insecure = true
+#   }
+# }
 #---------------------------------------
 # Helm Provider 설정
 #---------------------------------------

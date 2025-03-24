@@ -72,49 +72,6 @@ output "eks_cluster_certificate_authority_data" {
   sensitive   = true
 }
 
-# 프론트엔드 모듈 출력값 노출
-# output "frontend_s3_bucket" {
-#   description = "프론트엔드 S3 버킷 이름"
-#   value       = module.frontend.s3_bucket_name
-# }
-
-# output "frontend_cloudfront_domain" {
-#   description = "프론트엔드 CloudFront 도메인"
-#   value       = module.frontend.cloudfront_domain_name
-# }
-
-# output "frontend_cloudfront_distribution_id" {
-#   description = "프론트엔드 CloudFront 배포 ID"
-#   value       = module.frontend.cloudfront_distribution_id
-# }
-
-#---------------------------------------
-# DB 모듈 출력값
-#---------------------------------------
-
-# DB 관련 출력값
-# output "db_instance_endpoint" {
-#   description = "MySQL 데이터베이스 연결 엔드포인트"
-#   value       = module.db.db_instance_endpoint
-# }
-
-# output "db_instance_name" {
-#   description = "MySQL 데이터베이스 이름"
-#   value       = module.db.db_instance_name
-#   sensitive   = true
-# }
-
-# 시크릿 관련 출력값
-# output "mysql_secret_arn" {
-#   description = "MySQL 데이터베이스 시크릿 ARN"
-#   value       = module.secrets.mysql_secret_arn
-# }
-
-# output "secrets_access_policy_arn" {
-#   description = "시크릿 접근 IAM 정책 ARN"
-#   value       = module.secrets.secrets_access_policy_arn
-# }
-
 #---------------------------------------
 # ECR 저장소 출력값
 #---------------------------------------

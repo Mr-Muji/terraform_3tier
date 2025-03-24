@@ -44,19 +44,19 @@ variable "mysql_version" {
 variable "db_instance_class" {
   description = "데이터베이스 인스턴스 유형"
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t4g.micro"
 }
 
 variable "allocated_storage" {
   description = "할당할 스토리지 용량 (GB)"
   type        = number
-  default     = 20
+  default     = 5
 }
 
 variable "storage_type" {
   description = "스토리지 유형 (gp2, gp3, io1 등)"
   type        = string
-  default     = "gp3"
+  default     = "gp2"
 }
 
 variable "multi_az" {
@@ -68,7 +68,7 @@ variable "multi_az" {
 variable "backup_retention_period" {
   description = "자동 백업 보존 기간 (일)"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "deletion_protection" {
@@ -80,10 +80,11 @@ variable "deletion_protection" {
 variable "skip_final_snapshot" {
   description = "삭제 시 최종 스냅샷 생성 건너뛰기 여부"
   type        = bool
-  default     = false
+  default     = true # 스냅샷 생성 건너뛰기
 }
 
 variable "availability_zone_a" {
-  description = "A존 가용 영역 (예: ap-northeast-2a)"
+  description = "A존 가용 영역"
   type        = string
+  default     = "ap-northeast-2a"
 }

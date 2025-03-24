@@ -83,10 +83,10 @@ variable "tags" {
 }
 
 # 노드 그룹 관련 변수
-variable "node_instance_types" {
-  description = "EKS 노드 그룹에 사용할 인스턴스 타입 목록"
-  type        = list(string)
-  default     = ["t3.micro"]
+variable "node_instance_type" {
+  description = "EKS 노드 그룹에 사용할 인스턴스 타입"
+  type        = string
+  default     = "t3.micro"
 }
 
 variable "node_disk_size" {
@@ -119,16 +119,16 @@ variable "node_max_size" {
   # default     = 2
 }
 
-# Kubernetes 네임스페이스
-# variable "kubernetes_namespace" {
-#   description = "생성할 Kubernetes 네임스페이스"
-#   type        = string
-#   default     = "backend"
-# }
-
 # AWS Load Balancer Controller 설정
 variable "enable_aws_load_balancer_controller" {
   description = "AWS Load Balancer Controller 활성화 여부 (Helm 차트 방식)"
   type        = bool
   default     = true
+}
+
+# 노드 그룹 이름
+variable "node_group_name" {
+  description = "EKS 노드 그룹의 이름"
+  type        = string
+  default     = "general-purpose"
 }

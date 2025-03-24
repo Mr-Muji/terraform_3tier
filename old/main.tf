@@ -109,18 +109,6 @@ data "aws_route53_zone" "main" {
   name = var.domain_name # "mydairy.my"
 }
 
-# # 프론트엔드 모듈 호출
-# module "frontend" {
-#   source = "./modules/frontend"
-
-#   environment     = var.environment
-#   project_name    = var.project_name
-#   domain_name     = "mydairy.my"
-#   zone_id         = data.aws_route53_zone.main.zone_id
-#   certificate_arn = "arn:aws:acm:us-east-1:183631327456:certificate/f7e962fb-4afa-446b-9b04-8c4e330a142b"
-#   # CloudFront 배포에 사용되는 인증서는 반드시 버지니아 북부 리전인 us-east-1에 있어야 함
-# }
-
 #---------------------------------------
 # Secrets Manager 모듈 호출
 # 데이터베이스 보안 정보 관리
@@ -232,8 +220,13 @@ module "cicd" {
   # AWS 리전 설정
   region = var.aws_region
 
-  # 의존성 주입
-  eks_cluster_id = module.compute.eks_cluster_id
+  # 의존성 주입 (수정된 부분)
+  eks_cluster_id = module.compute.cluster_id  # 'eks_cluster_id'에서 'cluster_id'로 변경
+  
+  # 프로바이더 명시적 전달
+  providers = {
+    kubernetes.post_cluster = kubernetes.post_cluster
+  }
   
   # 의존성 확장 - IRSA 추가
   depends_on = [

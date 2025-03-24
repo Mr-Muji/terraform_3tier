@@ -9,6 +9,7 @@ resource "aws_vpc" "vpc_tier3" {
   
   tags = {
     Name = "VPC_${var.project_name}"
+    Environment = var.environment
   }
 }
 
@@ -18,6 +19,7 @@ resource "aws_internet_gateway" "igw_tier3" {
   
   tags = {
     Name = "IGW_${var.project_name}"
+    Environment = var.environment
   }
 }
 
@@ -32,7 +34,8 @@ resource "aws_subnet" "subnet_public_azone" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "SUBNET_public_Azone"
+    Name = "${var.project_name}-public-subnet-a"
+    Environment = var.environment
     Tier = "Public"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
     "kubernetes.io/role/elb" = "1"
@@ -47,65 +50,70 @@ resource "aws_subnet" "subnet_public_czone" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "SUBNET_public_Czone"
+    Name = "${var.project_name}-public-subnet-c"
+    Environment = var.environment
     Tier = "Public"
     "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
     "kubernetes.io/role/elb" = "1"
   }
 }
 
-# 프라이빗 서브넷 생성 (A 가용 영역) - 기존 NAT 서브넷
+# 프라이빗 서브넷 생성 (A 가용 영역) - 애플리케이션용
 resource "aws_subnet" "subnet_private_azone" {
-  vpc_id                  = aws_vpc.vpc_tier3.id
-  cidr_block              = var.nat_subnet_cidrs["Azone"]
-  availability_zone       = var.availability_zones[0]
-  map_public_ip_on_launch = false
-
-  tags = {
-    Name = "SUBNET_private_Azone"
-    Tier = "Private"
-    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb" = "1"
-  }
-}
-
-# 프라이빗 서브넷 생성 (C 가용 영역) - 기존 NAT 서브넷
-resource "aws_subnet" "subnet_private_czone" {
-  vpc_id                  = aws_vpc.vpc_tier3.id
-  cidr_block              = var.nat_subnet_cidrs["Czone"]
-  availability_zone       = var.availability_zones[1]
-  map_public_ip_on_launch = false
-
-  tags = {
-    Name = "SUBNET_private_Czone"
-    Tier = "Private"
-    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
-    "kubernetes.io/role/internal-elb" = "1"
-  }
-}
-
-# 데이터베이스 서브넷 생성 (A 가용 영역) - 기존 프라이빗 서브넷
-resource "aws_subnet" "subnet_database_azone" {
   vpc_id                  = aws_vpc.vpc_tier3.id
   cidr_block              = var.private_subnet_cidrs["Azone"]
   availability_zone       = var.availability_zones[0]
   map_public_ip_on_launch = false
 
   tags = {
-    Name = "SUBNET_database_Azone"
-    Tier = "Database"
+    Name = "${var.project_name}-private-subnet-a"
+    Environment = var.environment
+    Tier = "Private"
+    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
+    "kubernetes.io/role/internal-elb" = "1"
   }
 }
 
-# 데이터베이스 서브넷 생성 (C 가용 영역) - 기존 프라이빗 서브넷
-resource "aws_subnet" "subnet_database_czone" {
+# 프라이빗 서브넷 생성 (C 가용 영역) - 애플리케이션용
+resource "aws_subnet" "subnet_private_czone" {
   vpc_id                  = aws_vpc.vpc_tier3.id
   cidr_block              = var.private_subnet_cidrs["Czone"]
   availability_zone       = var.availability_zones[1]
   map_public_ip_on_launch = false
 
   tags = {
-    Name = "SUBNET_database_Czone"
+    Name = "${var.project_name}-private-subnet-c"
+    Environment = var.environment
+    Tier = "Private"
+    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
+    "kubernetes.io/role/internal-elb" = "1"
+  }
+}
+
+# 데이터베이스 서브넷 생성 (A 가용 영역)
+resource "aws_subnet" "subnet_database_azone" {
+  vpc_id                  = aws_vpc.vpc_tier3.id
+  cidr_block              = var.database_subnet_cidrs["Azone"]
+  availability_zone       = var.availability_zones[0]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "${var.project_name}-database-subnet-a"
+    Environment = var.environment
+    Tier = "Database"
+  }
+}
+
+# 데이터베이스 서브넷 생성 (C 가용 영역)
+resource "aws_subnet" "subnet_database_czone" {
+  vpc_id                  = aws_vpc.vpc_tier3.id
+  cidr_block              = var.database_subnet_cidrs["Czone"]
+  availability_zone       = var.availability_zones[1]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "${var.project_name}-database-subnet-c"
+    Environment = var.environment
     Tier = "Database"
   }
 }
@@ -115,67 +123,30 @@ resource "aws_subnet" "subnet_database_czone" {
 #======================================================
 
 #---------------------------------------
-# Elastic IP 할당 - NAT 게이트웨이용
+# 탄력적 IP 할당 - NAT 게이트웨이용
 #---------------------------------------
-# 이전 코드 (여러 EIP 사용)
-# resource "aws_eip" "nat_eip_a" {
-#   domain = "vpc"
-#   tags = {
-#     Name = "${var.project_name}-nat-eip-a"
-#   }
-# }
-# 
-# resource "aws_eip" "nat_eip_c" {
-#   domain = "vpc"
-#   tags = {
-#     Name = "${var.project_name}-nat-eip-c"
-#   }
-# }
-
-# 수정된 코드 (단일 EIP 사용)
-resource "aws_eip" "nat_eip" {
+# 탄력적 IP 생성 (A 가용 영역만 사용)
+resource "aws_eip" "eip_nat" {
   domain = "vpc"
+
   tags = {
-    Name = "${var.project_name}-nat-eip"
+    Name = "${var.project_name}-eip-nat"
+    Environment = var.environment
   }
 }
 
 #---------------------------------------
 # NAT 게이트웨이 생성
 #---------------------------------------
-# 이전 코드 (여러 NAT 게이트웨이 사용)
-# resource "aws_nat_gateway" "nat_gateway_a" {
-#   allocation_id = aws_eip.nat_eip_a.id
-#   subnet_id     = aws_subnet.subnet_public_azone.id
-# 
-#   tags = {
-#     Name = "${var.project_name}-nat-gw-a"
-#   }
-# 
-#   depends_on = [aws_internet_gateway.igw_tier3]
-# }
-# 
-# resource "aws_nat_gateway" "nat_gateway_c" {
-#   allocation_id = aws_eip.nat_eip_c.id
-#   subnet_id     = aws_subnet.subnet_public_czone.id
-# 
-#   tags = {
-#     Name = "${var.project_name}-nat-gw-c"
-#   }
-# 
-#   depends_on = [aws_internet_gateway.igw_tier3]
-# }
-
-# 수정된 코드 (단일 NAT 게이트웨이 사용)
-resource "aws_nat_gateway" "nat_gateway" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.subnet_public_azone.id  # A 가용 영역의 퍼블릭 서브넷에만 배치
-
+# NAT 게이트웨이 생성 (A 가용 영역에만 생성)
+resource "aws_nat_gateway" "nat_gw" {
+  allocation_id = aws_eip.eip_nat.id
+  subnet_id     = aws_subnet.subnet_public_azone.id
+  
   tags = {
     Name = "${var.project_name}-nat-gw"
+    Environment = var.environment
   }
-
-  depends_on = [aws_internet_gateway.igw_tier3]
 }
 
 #---------------------------------------
@@ -193,36 +164,65 @@ resource "aws_route_table" "rt_public" {
 
   tags = {
     Name = "${var.project_name}-rt-public"
+    Environment = var.environment
   }
 }
 
-# 2. NAT 서브넷용 라우팅 테이블 - NAT 게이트웨이로 라우팅
-resource "aws_route_table" "rt_nat" {
+# 2. 프라이빗 서브넷용 라우팅 테이블 - NAT 게이트웨이로 라우팅 (A존과 C존 모두 동일한 NAT 게이트웨이 사용)
+resource "aws_route_table" "rt_private_azone" {
   vpc_id = aws_vpc.vpc_tier3.id
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat_gateway.id
+    nat_gateway_id = aws_nat_gateway.nat_gw.id
   }
 
   tags = {
-    Name = "${var.project_name}-rt-nat"
+    Name = "${var.project_name}-rt-private-a"
+    Environment = var.environment
   }
 }
 
-# 3. 프라이빗 서브넷용 라우팅 테이블 - 외부 통신 없음
-resource "aws_route_table" "rt_private" {
+resource "aws_route_table" "rt_private_czone" {
   vpc_id = aws_vpc.vpc_tier3.id
 
-  # 외부 통신이 필요없는 경우 기본 라우팅만 유지
-  # 필요시 다음과 같이 NAT 게이트웨이 경로 추가 가능
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat_gw.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-rt-private-c"
+    Environment = var.environment
+  }
+}
+
+# 3. 데이터베이스 서브넷용 라우팅 테이블 - NAT 게이트웨이로 라우팅 (필요한 경우)
+resource "aws_route_table" "rt_database_azone" {
+  vpc_id = aws_vpc.vpc_tier3.id
+
   # route {
   #   cidr_block     = "0.0.0.0/0"
-  #   nat_gateway_id = aws_nat_gateway.nat_gateway.id
+  #   nat_gateway_id = aws_nat_gateway.nat_gw.id
   # }
 
   tags = {
-    Name = "${var.project_name}-rt-private"
+    Name = "${var.project_name}-rt-database-a"
+    Environment = var.environment
+  }
+}
+
+resource "aws_route_table" "rt_database_czone" {
+  vpc_id = aws_vpc.vpc_tier3.id
+
+  # route {
+  #   cidr_block     = "0.0.0.0/0"
+  #   nat_gateway_id = aws_nat_gateway.nat_gw.id
+  # }
+
+  tags = {
+    Name = "${var.project_name}-rt-database-c"
+    Environment = var.environment
   }
 }
 
@@ -231,36 +231,36 @@ resource "aws_route_table" "rt_private" {
 #---------------------------------------
 
 # 퍼블릭 서브넷에 퍼블릭 라우팅 테이블 연결
-resource "aws_route_table_association" "rta_public_a" {
+resource "aws_route_table_association" "rta_public_azone" {
   subnet_id      = aws_subnet.subnet_public_azone.id
   route_table_id = aws_route_table.rt_public.id
 }
 
-resource "aws_route_table_association" "rta_public_c" {
+resource "aws_route_table_association" "rta_public_czone" {
   subnet_id      = aws_subnet.subnet_public_czone.id
   route_table_id = aws_route_table.rt_public.id
 }
 
 # 프라이빗 서브넷에 NAT 라우팅 테이블 연결 (기존 NAT 서브넷)
-resource "aws_route_table_association" "rta_private_a" {
+resource "aws_route_table_association" "rta_private_azone" {
   subnet_id      = aws_subnet.subnet_private_azone.id
-  route_table_id = aws_route_table.rt_nat.id
+  route_table_id = aws_route_table.rt_private_azone.id
 }
 
-resource "aws_route_table_association" "rta_private_c" {
+resource "aws_route_table_association" "rta_private_czone" {
   subnet_id      = aws_subnet.subnet_private_czone.id
-  route_table_id = aws_route_table.rt_nat.id
+  route_table_id = aws_route_table.rt_private_czone.id
 }
 
 # 데이터베이스 서브넷에 프라이빗 라우팅 테이블 연결 (기존 프라이빗 서브넷)
-resource "aws_route_table_association" "rta_database_a" {
+resource "aws_route_table_association" "rta_database_azone" {
   subnet_id      = aws_subnet.subnet_database_azone.id
-  route_table_id = aws_route_table.rt_private.id
+  route_table_id = aws_route_table.rt_database_azone.id
 }
 
-resource "aws_route_table_association" "rta_database_c" {
+resource "aws_route_table_association" "rta_database_czone" {
   subnet_id      = aws_subnet.subnet_database_czone.id
-  route_table_id = aws_route_table.rt_private.id
+  route_table_id = aws_route_table.rt_database_czone.id
 }
 
 #---------------------------------------
