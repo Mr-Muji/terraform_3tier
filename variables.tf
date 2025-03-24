@@ -287,3 +287,9 @@ variable "argocd_chart_version" {
   type        = string
   default     = "5.51.4"
 }
+
+# 쿠베 문제용
+variable "eks_cluster_id" {
+  description = "EKS 클러스터 ID - 의존성 주입용"
+  type        = string
+}

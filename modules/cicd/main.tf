@@ -112,6 +112,8 @@ resource "aws_ecr_lifecycle_policy" "frontend_repo_policy" {
 resource "kubernetes_namespace" "argocd" {
   count = var.install_argocd ? 1 : 0  # install_argocd 변수가 true일 때만 생성
 
+  provider = kubernetes.post_cluster
+
   metadata {
     name = var.argocd_namespace  # 네임스페이스 이름 (기본값: argocd)
     
@@ -240,9 +242,10 @@ resource "kubernetes_secret" "ecr_auth" {
 }
 
 # ArgoCD Application 리소스 생성 (GitOps 파이프라인 구성)
-# 현재 비활성화 상태 (0)로 설정됨 - 필요시 활성화 가능
 resource "kubernetes_manifest" "frontend_application" {
-  count = 0  # 비활성화 (원래: var.install_argocd ? 1 : 0)
+  count = var.install_argocd && var.helm_charts_repo_url != "" ? 1 : 0
+  
+  provider = kubernetes.post_cluster
 
   # Application 리소스 정의
   manifest = {
@@ -331,14 +334,16 @@ resource "null_resource" "wait_for_cluster" {
     EOT
   }
 
-  # var.depends_on 대신 실제 리소스에 의존성 설정
+  # 실제 리소스에 대한 의존성으로 변경
   depends_on = [time_sleep.wait_for_eks]
 }
 
 # ArgoCD App of Apps 루트 애플리케이션 생성
 resource "kubernetes_manifest" "root_application" {
-  count = var.install_argocd && var.helm_charts_repo_url != "" ? 1 : 0
-
+  # 클러스터 없이 첫 단계 배포 시 오류 방지
+  count = 0  # var.install_argocd && var.helm_charts_repo_url != "" ? 1 : 0
+  provider = kubernetes.post_cluster
+  
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "Application"
@@ -405,7 +410,7 @@ resource "kubernetes_manifest" "root_application" {
 
   # EKS 클러스터가 준비된 후에만 생성
   depends_on = [
-    null_resource.wait_for_cluster,
+    
     helm_release.argocd,
     time_sleep.wait_for_crds,
     kubernetes_namespace.argocd,

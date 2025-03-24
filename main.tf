@@ -231,6 +231,9 @@ module "cicd" {
   
   # AWS 리전 설정
   region = var.aws_region
+
+  # 의존성 주입
+  eks_cluster_id = module.compute.eks_cluster_id
   
   # 의존성 확장 - IRSA 추가
   depends_on = [

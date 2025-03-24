@@ -11,6 +11,8 @@ terraform {
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = ">= 2.10.0"
+
+      configuration_aliases = [kubernetes.post_cluster]
     }
     # TLS 프로바이더 추가 - EKS OIDC 발급자의 인증서를 처리하는 데 사용됩니다
     tls = {
@@ -60,6 +62,13 @@ provider "aws" {
   # assume_role { ... }     # 다른 계정의 역할 수임 (필요 시 구성)
 }
 
+# 계획 시에만 사용할 기본 Provider (더미 설정)
+provider "kubernetes" {
+  # 더미 구성으로 초기화만 가능하게 함
+  host = "https://localhost:8443"
+  insecure = true
+}
+
 # 안전한 접근을 위해 condition 추가
 locals {
   # EKS 클러스터가 존재하는지 확인
@@ -77,6 +86,8 @@ locals {
 
 # 쿠버네티스 프로바이더 - EKS 클러스터가 생성된 후에만 활성화
 provider "kubernetes" {
+  alias = "post_cluster"  # 쿠베 문제용
+
   host                   = local.safe_cluster_endpoint
   cluster_ca_certificate = local.safe_cluster_ca_cert
   
@@ -92,9 +103,14 @@ provider "kubernetes" {
       var.aws_region
     ]
   }
-  # 의존성 설정 추가
 }
-
+# 쿠베 문제용
+provider "helm" {
+  kubernetes {
+    host = "https://localhost:8443"
+    insecure = true
+  }
+}
 #---------------------------------------
 # Helm Provider 설정
 #---------------------------------------
