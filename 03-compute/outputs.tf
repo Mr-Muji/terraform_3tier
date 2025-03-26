@@ -77,7 +77,7 @@ output "argocd_namespace" {
 
 output "argocd_url" {
   description = "ArgoCD 접속 URL"
-  value       = module.argocd.argocd_url
+  value       = "https://${local.argocd_ingress_host}"
 }
 
 output "argocd_server_service" {
@@ -85,33 +85,13 @@ output "argocd_server_service" {
   value       = module.argocd.argocd_server_service
 }
 
-output "argocd_hostname" {
-  description = "ArgoCD 인그레스 호스트이름"
-  value       = module.argocd.argocd_hostname
-}
-
-output "argocd_admin_password_hash" {
-  description = "ArgoCD 관리자 비밀번호 해시"
-  value       = module.argocd.admin_password_hash
-  sensitive   = true
-}
-
-output "argocd_ingress_class" {
-  description = "ArgoCD에 사용된 인그레스 클래스"
-  value       = module.argocd.ingress_class
-}
-
-output "argocd_ingress_annotations" {
-  description = "ArgoCD에 사용된 인그레스 어노테이션"
-  value       = module.argocd.ingress_annotations
-}
-
-output "argocd_chart_version" {
-  description = "설치된 ArgoCD 차트 버전"
-  value       = module.argocd.argocd_chart_version
-}
-
 output "argocd_is_installed" {
-  description = "ArgoCD 설치 여부"
-  value       = module.argocd.is_installed
+  description = "ArgoCD 설치 완료 여부"
+  value       = module.argocd.installed
+}
+
+# ArgoCD 인그레스 호스트 출력 (로컬 변수에서 직접 가져옴)
+output "argocd_ingress_host" {
+  description = "ArgoCD 인그레스 호스트 이름"
+  value       = local.argocd_ingress_host
 }

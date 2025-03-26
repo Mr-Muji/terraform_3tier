@@ -148,6 +148,12 @@ resource "aws_iam_role_policy_attachment" "node_AmazonEKS_CNI_Policy" {
   role       = aws_iam_role.node.name
 }
 
+# AWS 관리형 EBS CSI 드라이버 정책 노드 역할에 연결
+resource "aws_iam_role_policy_attachment" "node_AmazonEKSEBSPolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.node.name
+}
+
 # CloudWatch Observability는 Load Balancer Controller 이후에 설치
 resource "aws_eks_addon" "cw_observability" {
   count = var.enable_cloudwatch_observability ? 1 : 0
@@ -172,8 +178,8 @@ resource "aws_eks_addon" "cw_observability" {
 resource "aws_eks_addon" "vpc_cni" {
   cluster_name = aws_eks_cluster.this.name
   addon_name   = "vpc-cni"
-
   resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"  # 버전 업데이트를 위해 OVERWRITE로 설정
 
   tags = {
     Environment = var.environment
@@ -189,6 +195,7 @@ resource "aws_eks_addon" "coredns" {
   addon_name   = "coredns"
 
   resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"  # 버전 업데이트를 위해 OVERWRITE로 설정
 
   tags = {
     Environment = var.environment
@@ -204,6 +211,7 @@ resource "aws_eks_addon" "kube_proxy" {
   addon_name   = "kube-proxy"
 
   resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"  # 버전 업데이트를 위해 OVERWRITE로 설정
 
   tags = {
     Environment = var.environment
@@ -212,21 +220,21 @@ resource "aws_eks_addon" "kube_proxy" {
   depends_on = [aws_eks_cluster.this, aws_eks_node_group.general_purpose]
 }
 
-# EBS CSI 드라이버 - 블록 스토리지
-resource "aws_eks_addon" "ebs_csi" {
-  cluster_name = aws_eks_cluster.this.name
-  addon_name   = "aws-ebs-csi-driver"
+# # EBS CSI 드라이버 - 블록 스토리지
+# resource "aws_eks_addon" "ebs_csi" {
+#   cluster_name = aws_eks_cluster.this.name
+#   addon_name   = "aws-ebs-csi-driver"
 
-  resolve_conflicts_on_create = "OVERWRITE"
+#   resolve_conflicts_on_create = "OVERWRITE"
 
-  tags = {
-    Environment = var.environment
-  }
+#   tags = {
+#     Environment = var.environment
+#   }
 
-  # 애드온 설치 전에 노드 그룹이 존재해야 합니다
-  # 노드 그룹 생성 후 주석 해제
-  depends_on = [aws_eks_node_group.general_purpose]
-}
+#   # 애드온 설치 전에 노드 그룹이 존재해야 합니다
+#   # 노드 그룹 생성 후 주석 해제
+#   depends_on = [aws_eks_node_group.general_purpose]
+# }
 
 # EKS Pod Identity 에이전트 설치
 resource "aws_eks_addon" "pod_identity_agent" {
@@ -298,7 +306,8 @@ resource "aws_eks_node_group" "general_purpose" {
     aws_eks_cluster.this,
     aws_iam_role_policy_attachment.node_AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.node_AmazonEC2ContainerRegistryReadOnly,
-    aws_iam_role_policy_attachment.node_AmazonEKS_CNI_Policy
+    aws_iam_role_policy_attachment.node_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.node_AmazonEKSEBSPolicy
   ]
 
   # 노드 그룹 업데이트 시 새 노드 그룹 생성 후 기존 노드 그룹 삭제
@@ -470,7 +479,222 @@ resource "helm_release" "aws_load_balancer_controller" {
     aws_eks_node_group.general_purpose,
     aws_iam_role_policy_attachment.lb_controller
   ]
+
+  # 추가: 명시적 wait 설정
+  wait = true
+  wait_for_jobs = true
 }
 
 # 현재 AWS 리전 정보 가져오기
 data "aws_region" "current" {}
+
+#---------------------------------------
+# Metrics Server 설치 (HPA 지원을 위해 필요)
+#---------------------------------------
+resource "helm_release" "metrics_server" {
+  count = var.enable_metrics_server ? 1 : 0
+  
+  # Helm 릴리스 이름
+  name = "metrics-server"
+  
+  # Metrics Server 공식 Helm 차트 저장소
+  repository = "https://kubernetes-sigs.github.io/metrics-server/"
+  
+  # 차트 이름
+  chart = "metrics-server"
+  
+  # 설치할 네임스페이스 - 시스템 컴포넌트는 kube-system에 설치
+  namespace = "kube-system"
+  
+  # # 차트 버전 지정 (선택적)
+  # version = var.metrics_server_version
+  
+  # 설치 타임아웃. 중요옵션임. 이거 30으로 하면 에러남
+  timeout = 90
+  
+  # 주요 설정값
+  set {
+    name  = "args[0]"
+    value = "--kubelet-insecure-tls"  # 자체 서명 인증서 허용 (개발 환경용)
+  }
+  
+  set {
+    name  = "args[1]"
+    value = "--kubelet-preferred-address-types=InternalIP"  # 내부 IP 주소 사용
+  }
+  
+  # 차트 설치 전에 EKS 클러스터와 필수 애드온이 준비되어 있어야 함
+  depends_on = [
+    aws_eks_cluster.this,
+    aws_eks_node_group.general_purpose,
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.coredns,
+    aws_eks_addon.kube_proxy,
+    helm_release.aws_load_balancer_controller
+  ]
+}
+
+# External DNS를 위한 IAM 정책
+resource "aws_iam_policy" "external_dns" {
+  name        = "${var.eks_cluster_name}-external-dns-policy"
+  description = "IAM policy for External DNS"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets"
+        ]
+        Resource = ["arn:aws:route53:::hostedzone/*"]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ListHostedZones",
+          "route53:ListResourceRecordSets"
+        ]
+        Resource = ["*"]
+      }
+    ]
+  })
+}
+
+# External DNS를 위한 IAM 역할
+resource "aws_iam_role" "external_dns" {
+  name = "${var.eks_cluster_name}-external-dns-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub": "system:serviceaccount:kube-system:external-dns"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# 정책 연결
+resource "aws_iam_role_policy_attachment" "external_dns" {
+  role       = aws_iam_role.external_dns.name
+  policy_arn = aws_iam_policy.external_dns.arn
+}
+
+# External DNS 설치
+resource "helm_release" "external_dns" {
+  name       = "external-dns"
+  repository = "https://charts.bitnami.com/bitnami"
+  chart      = "external-dns"
+  version    = "6.20.1"
+  namespace  = "kube-system"
+  
+  set {
+    name  = "provider"
+    value = "aws"
+  }
+  
+  set {
+    name  = "aws.region"
+    value = data.aws_region.current.name
+  }
+  
+  set {
+    name  = "domainFilters[0]"
+    value = var.domain_name  # 관리할 도메인 필터
+  }
+  
+  set {
+    name  = "serviceAccount.create"
+    value = "true"
+  }
+  
+  set {
+    name  = "serviceAccount.name"
+    value = "external-dns"
+  }
+  
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.external_dns.arn
+  }
+  
+  set {
+    name  = "policy"
+    value = "sync"  # 또는 upsert-only
+  }
+  
+  depends_on = [
+    aws_eks_node_group.general_purpose,
+    aws_iam_role_policy_attachment.external_dns,
+    helm_release.aws_load_balancer_controller
+  ]
+}
+
+resource "time_sleep" "wait_for_lb_controller" {
+  depends_on = [helm_release.aws_load_balancer_controller]
+  create_duration = "60s"
+}
+
+# EBS CSI 드라이버를 위한 IAM 역할 생성
+resource "aws_iam_role" "ebs_csi_driver" {
+  name = "${var.project_name}-ebs-csi-driver"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.eks.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+          }
+        }
+      }
+    ]
+  })
+  
+  tags = {
+    Name        = "${var.project_name}-ebs-csi-driver"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# AWS 관리형 EBS CSI 드라이버 정책 연결
+resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi_driver.name
+}
+
+# EBS CSI 드라이버 애드온 설정
+resource "aws_eks_addon" "ebs_csi_driver" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "aws-ebs-csi-driver"
+  
+  # 필수: 서비스 계정 역할 ARN
+  service_account_role_arn = aws_iam_role.ebs_csi_driver.arn
+  
+  # 충돌 해결 옵션 (기존 설치와 충돌 시)
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  
+  depends_on = [
+    aws_eks_cluster.this, 
+    aws_eks_node_group.general_purpose,
+    aws_iam_role_policy_attachment.ebs_csi_driver
+  ]
+}

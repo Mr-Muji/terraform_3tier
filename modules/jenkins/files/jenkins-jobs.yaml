@@ -1,0 +1,29 @@
+# Jenkins 작업 설정 파일
+# Jenkins Job DSL 플러그인에 의해 처리되어 작업이 자동 생성됩니다
+
+jobs:
+  - script: >
+      pipelineJob('${backend_ecr_name}-${jenkins_job_suffix}') {
+        description('${job_description}')
+        triggers {
+          scm('${scm_poll_interval}')
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('${backend_repo_url}')
+                  credentials('github-token')
+                }
+                branch('${backend_repo_branch}')
+              }
+            }
+            scriptPath('Jenkinsfile')  // 백엔드 레포의 Jenkinsfile 사용
+          }
+        }
+        environmentVariables {
+          env('ECR_REPOSITORY', '${backend_ecr_url}')
+          env('AWS_REGION', 'ap-northeast-2')
+        }
+      }

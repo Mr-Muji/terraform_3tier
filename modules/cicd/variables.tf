@@ -6,7 +6,6 @@
 variable "prefix" {
   description = "리소스 이름에 사용할 접두사"
   type        = string
-  default     = "tier3"
 }
 
 variable "environment" {
@@ -101,6 +100,12 @@ variable "argocd_namespace" {
   default     = "argocd"
 }
 
+variable "argocd_ingress_host" {
+  description = "ArgoCD 인그레스 호스트 이름"
+  type        = string
+  default     = "argocd.example.com"
+}
+
 # 프론트엔드 애플리케이션 관련 변수
 variable "git_repo_url" {
   description = "프론트엔드 소스 코드가 있는 Git 저장소"
@@ -130,7 +135,6 @@ variable "frontend_namespace" {
 variable "domain_name" {
   description = "도메인 이름"
   type        = string
-  default     = "example.com"
 }
 
 variable "zone_id" {
@@ -142,7 +146,6 @@ variable "zone_id" {
 variable "frontend_ingress_host" {
   description = "프론트엔드 인그레스 호스트 이름"
   type        = string
-  default     = "frontend.example.com"
 }
 
 variable "frontend_ingress_name" {
@@ -169,13 +172,13 @@ variable "ecr_auth_token" {
 variable "helm_charts_repo_url" {
   description = "Helm 차트가 저장된 Git 저장소 URL"
   type        = string
-  default     = ""
+  default     = "https://github.com/Mr-Muji/3tier-manifest.git"
 }
 
 variable "helm_charts_repo_path" {
   description = "Helm 차트 저장소 내 경로"
   type        = string
-  default     = "charts"
+  default     = "apps"
 }
 
 variable "helm_charts_revision" {
@@ -188,4 +191,54 @@ variable "backend_namespace" {
   description = "백엔드 애플리케이션이 배포될 네임스페이스"
   type        = string
   default     = "backend"
+}
+
+variable "use_existing_ecr" {
+  description = "기존 ECR 저장소를 사용할지 여부 (true: 기존 저장소 사용, false: 새로 생성)"
+  type        = bool
+  default     = true
+}
+
+variable "frontend_repository_url" {
+  description = "프론트엔드 ECR 저장소 URL"
+  type        = string
+}
+
+variable "backend_repository_url" {
+  description = "백엔드 ECR 저장소 URL"
+  type        = string
+}
+
+# ALB 호스팅 영역 ID 변수 추가
+variable "alb_hosted_zone_id" {
+  description = "ALB의 호스팅 영역 ID (리전마다 다름)"
+  type        = string
+  default     = "ZWKZPGTI48KDX"  # ap-northeast-2의 올바른 ALB 호스팅 영역 ID
+}
+
+# 도메인 설정 즉시 활성화 여부
+variable "enable_immediate_dns_setup" {
+  description = "즉시 도메인 설정을 활성화할지 여부"
+  type        = bool
+  default     = true
+}
+
+# 로드밸런서 이름 변수 추가
+variable "frontend_lb_name" {
+  description = "프론트엔드 로드밸런서 이름"
+  type        = string
+  default     = ""
+}
+
+# 저장소 이름 변수 추가
+variable "frontend_repo_name" {
+  description = "프론트엔드 ECR 저장소 이름"
+  type        = string
+  default     = ""
+}
+
+variable "backend_repo_name" {
+  description = "백엔드 ECR 저장소 이름"
+  type        = string
+  default     = ""
 }

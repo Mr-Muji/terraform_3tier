@@ -9,6 +9,9 @@
 #---------------------------------------
 module "db" {
   source = "../modules/db"
+
+  # RDS 생성 제어
+  count = local.create_rds ? 1 : 0
   
   # 기본 설정
   prefix      = local.project_name
@@ -23,13 +26,13 @@ module "db" {
   mysql_secret_arn = data.terraform_remote_state.base_infra.outputs.mysql_secret_arn
   
   # 데이터베이스 설정 (local.tf에서 정의한 값 사용)
-  mysql_version           = local.mysql_version
+  mysql_version           = local.db_mysql_version
   db_instance_class       = local.db_instance_class
-  allocated_storage       = local.allocated_storage
-  storage_type            = local.storage_type
-  multi_az                = local.multi_az
-  backup_retention_period = local.backup_retention_period
-  deletion_protection     = local.deletion_protection
-  skip_final_snapshot     = local.skip_final_snapshot
-  availability_zone_a     = local.availability_zone_a
+  allocated_storage       = local.db_allocated_storage
+  storage_type            = local.db_storage_type
+  multi_az                = local.db_multi_az
+  backup_retention_period = local.db_backup_retention_period
+  deletion_protection     = local.db_deletion_protection
+  skip_final_snapshot     = local.db_skip_final_snapshot
+  availability_zone_a     = local.db_availability_zone_a
 }

@@ -9,10 +9,11 @@ locals {
   
   # 공통 태그
   common_tags = {
-    Owner     = "DevOps"
-    ManagedBy = "Terraform"
-    Project   = local.project_name
+    Owner       = "DevOps"
+    ManagedBy   = "Terraform"
+    Project     = local.project_name
     Environment = local.environment
+    Stage       = "01-Base-Infra"
   }
 
   # VPC 및 네트워크 설정

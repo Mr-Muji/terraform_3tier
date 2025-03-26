@@ -1,0 +1,74 @@
+# Jenkins Configuration as Code(JCasC) 설정 파일
+# Jenkins 컨트롤러의 기본 구성을 정의합니다
+
+jenkins:
+  systemMessage: "Jenkins 설정이 Terraform으로 관리됩니다."
+  numExecutors: 0  # 컨트롤러에서 실행할 수 있는 작업 수 (0: 컨트롤러에서 작업 실행 불가)
+  
+  # Kubernetes 클라우드 설정
+  clouds:
+    - kubernetes:
+        name: "kubernetes"
+        serverUrl: "https://kubernetes.default.svc.cluster.local"  # Kubernetes API 서버
+        namespace: "${namespace}"  # Jenkins 네임스페이스
+        jenkinsUrl: "http://jenkins:8080"  # Jenkins URL
+        jenkinsTunnel: "jenkins-agent:50000"  # Jenkins 에이전트 터널 포트
+        containerCapStr: 10  # 최대 컨테이너 수
+        podRetention: "never"  # 작업 완료 후 Pod 유지 정책
+        connectTimeout: 100  # 연결 타임아웃
+        readTimeout: 1000  # 읽기 타임아웃
+        
+        # 에이전트 템플릿 설정
+        templates:
+          - name: "jenkins-agent"
+            namespace: "${namespace}"
+            nodeUsageMode: NORMAL
+            containers:
+            - name: "jnlp"
+              image: "jenkins/inbound-agent:latest"
+              alwaysPullImage: true
+              workingDir: "/home/jenkins/agent"
+              ttyEnabled: true
+              resourceRequestCpu: "500m"
+              resourceLimitCpu: "1000m"
+              resourceRequestMemory: "1Gi"
+              resourceLimitMemory: "2Gi"
+              volumeMounts:
+              - name: "docker-sock"
+                mountPath: "/var/run/docker.sock"  # Docker 소켓 마운트
+            volumes:
+            - name: "docker-sock"
+              hostPath:
+                path: "/var/run/docker.sock"  # 호스트의 Docker 소켓
+  
+  # 보안 설정
+  securityRealm:
+    local:
+      allowsSignup: false  # 사용자 등록 비활성화
+      users:
+        - id: admin
+          password: ${admin_password}  # 관리자 비밀번호
+  
+  # 전역 환경 변수 설정
+  globalNodeProperties:
+    - envVars:
+        env:
+        - key: "ECR_REPOSITORY"
+          value: "${backend_ecr_name}"  # ECR 저장소 이름
+        - key: "AWS_REGION"
+          value: "ap-northeast-2"  # AWS 리전
+  
+  # 자격 증명 설정
+  credentials:
+    system:
+      domainCredentials:
+        - credentials:
+            - string:
+                scope: GLOBAL
+                id: "github-token"
+                secret: ${github_token}
+                description: "GitHub 접근 토큰"
+  
+  # 작업 로더 추가
+  jobs:
+    - file: /var/jenkins_home/casc_configs/jobs/jobs.yaml

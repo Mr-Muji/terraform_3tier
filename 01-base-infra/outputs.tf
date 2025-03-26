@@ -92,6 +92,24 @@ output "secrets_access_policy_arn" {
   value       = module.secrets.secrets_access_policy_arn
 }
 
+# GitHub 토큰 관련 출력 - 토큰 자체는 출력하지 않고 ARN만 출력
+output "github_token_secret_arn" {
+  description = "GitHub 토큰 시크릿 ARN"
+  value       = module.secrets.github_token_secret_arn
+}
+
+# Jenkins 시크릿 관련 출력
+output "jenkins_secret_arn" {
+  description = "Jenkins 시크릿 ARN"
+  value       = module.secrets.jenkins_secret_arn
+}
+
+output "jenkins_admin_password" {
+  description = "Jenkins 관리자 비밀번호"
+  value       = module.secrets.jenkins_admin_password
+  sensitive   = true
+}
+
 #---------------------------------------
 # Route53 호스팅 영역 출력 (선택적)
 #---------------------------------------

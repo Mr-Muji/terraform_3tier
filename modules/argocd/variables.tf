@@ -8,24 +8,6 @@ variable "eks_cluster_id" {
   type        = string
 }
 
-variable "eks_cluster_endpoint" {
-  description = "EKS 클러스터 API 엔드포인트"
-  type        = string
-  default     = ""
-}
-
-variable "eks_cluster_ca_data" {
-  description = "EKS 클러스터 CA 인증서 데이터"
-  type        = string
-  default     = ""
-}
-
-variable "cluster_exists" {
-  description = "EKS 클러스터가 이미 존재하는지 여부"
-  type        = bool
-  default     = false
-}
-
 variable "region" {
   description = "AWS 리전"
   type        = string
@@ -83,15 +65,21 @@ variable "ingress_annotations" {
   }
 }
 
-# 도메인 관련 변수
-variable "domain_name" {
-  description = "도메인 이름"
-  type        = string
-  default     = "example.com"
+# Route53 관련 변수
+variable "create_route53_record" {
+  description = "Route53 레코드 생성 여부"
+  type        = bool
+  default     = true
 }
 
 variable "zone_id" {
   description = "Route53 호스팅 존 ID"
   type        = string
   default     = ""
-} 
+}
+
+variable "use_external_dns" {
+  description = "External DNS를 사용하여 DNS 레코드를 관리할지 여부"
+  type        = bool
+  default     = false
+}

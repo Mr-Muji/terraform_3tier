@@ -2,12 +2,12 @@
 # 프로바이더 및 Terraform 버전 요구사항
 #---------------------------------------
 terraform {
-  required_version = ">= 1.0.0"
+  required_version = ">= 1.3.0"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0.0"
+      version = ">= 4.0.0"
     }
     helm = {
       source  = "hashicorp/helm"
@@ -20,19 +20,31 @@ terraform {
   }
 }
 
+
 # 공통 공급자 설정
 provider "aws" {
   region = local.aws_region
 }
 
-# 이전 상태 파일에서 정보 가져오기
-data "terraform_remote_state" "base_infra" {
-  backend = local.remote_state_backend
-
+# prerequisites 원격 상태 데이터 소스 추가
+data "terraform_remote_state" "prerequisites" {
+  backend = "s3"
+  
   config = {
     bucket = local.remote_state_bucket
-    key    = local.remote_state_key
-    region = local.remote_state_region
+    key    = "tier3/00-prerequisites/terraform.tfstate"
+    region = local.aws_region
+  }
+}
+
+# 이전 상태 파일에서 정보 가져오기
+data "terraform_remote_state" "base_infra" {
+  backend = "s3"
+  
+  config = {
+    bucket = local.remote_state_bucket
+    key    = "tier3/01-base-infra/terraform.tfstate"
+    region = local.aws_region
   }
 }
 
@@ -72,3 +84,5 @@ provider "helm" {
     }
   }
 }
+
+

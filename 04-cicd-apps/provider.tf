@@ -26,12 +26,32 @@ provider "aws" {
   region = local.aws_region
 }
 
-# 03-compute 모듈에서 상태 정보 가져오기
+# 01-base-infra에서 상태 정보 가져오기
+data "terraform_remote_state" "base_infra" {
+  backend = "s3"
+  config = {
+    bucket = local.remote_state_bucket
+    key    = "tier3/01-base-infra/terraform.tfstate"
+    region = local.remote_state_region
+  }
+}
+
+# 03-compute에서 상태 정보 가져오기
 data "terraform_remote_state" "compute" {
   backend = "s3"
   config = {
     bucket = local.remote_state_bucket
-    key    = local.remote_state_key
+    key    = "tier3/03-compute/terraform.tfstate"
+    region = local.remote_state_region
+  }
+}
+
+# 00-prerequisites에서 ECR 정보 가져오기
+data "terraform_remote_state" "prerequisites" {
+  backend = "s3"
+  config = {
+    bucket = local.remote_state_bucket
+    key    = "tier3/00-prerequisites/terraform.tfstate"
     region = local.remote_state_region
   }
 }
@@ -77,5 +97,15 @@ provider "helm" {
       command     = "aws"
       args        = ["eks", "get-token", "--cluster-name", local.safe_cluster_id, "--region", local.aws_region]
     }
+  }
+}
+
+# 02-database 모듈에서 상태 정보 가져오기
+data "terraform_remote_state" "database" {
+  backend = "s3"
+  config = {
+    bucket = local.remote_state_bucket
+    key    = "tier3/02-database/terraform.tfstate"
+    region = local.remote_state_region
   }
 }

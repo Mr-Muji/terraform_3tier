@@ -5,3 +5,7 @@
 .terraform.lock.hcl
 .env
 terraform.tfvars
+old/
+
+# .github 폴더 내 파일 무시
+.github/

@@ -132,3 +132,23 @@ variable "node_group_name" {
   type        = string
   default     = "general-purpose"
 }
+
+# metrics server 설정 - hpa 사용을 위해 필요
+variable "enable_metrics_server" {
+  description = "Metrics Server 활성화 여부 (HPA 사용을 위해 필요)"
+  type        = bool
+  default     = true
+}
+
+variable "metrics_server_version" {
+  description = "설치할 Metrics Server 버전"
+  type        = string
+  default     = "3.11.0"  // 최신 안정 버전으로 변경 가능
+}
+
+# External DNS 설정
+variable "domain_name" {
+  description = "External DNS가 관리할 도메인 이름"
+  type        = string
+  default     = ""
+}

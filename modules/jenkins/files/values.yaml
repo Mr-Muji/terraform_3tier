@@ -1,0 +1,151 @@
+controller:
+  componentName: "jenkins-controller"
+  image: "jenkins/jenkins"
+  tag: "lts"
+  serviceType: "${jenkins_service_type}"
+  serviceAccount:
+    name: "${service_account_name}"
+  jenkinsUriPrefix: "/"
+  adminUser: "${jenkins_admin_user}"
+  
+  # 노드셀렉터는 제거 또는 주석 처리 (가용 영역 충돌 방지)
+  # nodeSelector:
+  #   topology.kubernetes.io/zone: "ap-northeast-2a"
+  
+  # 핵심 플러그인만 지정 (버전 지정 없이)
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - github:latest
+    - configuration-as-code:latest
+    - job-dsl:latest
+    - pipeline-aws:latest
+  initializeOnce: true   # 초기화 한 번만 수행
+  installState: "INITIAL_SETUP_COMPLETED"  # 설치 마법사 건너뛰기
+  
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+  persistence:
+    enabled: false  # PVC 사용 활성화
+    existingClaim: "${jenkins_pvc_name}"  # Terraform으로 생성된 PVC 사용
+    size: "20Gi"  
+    storageClass: "${storage_class_name}"
+    accessMode: "ReadWriteOnce"
+
+  # 볼륨 마운트 정보 추가
+  volumes:
+    - name: jenkins-config-volume
+      configMap:
+        name: jenkins-config
+    - name: jenkins-jobs-volume
+      configMap:
+        name: jenkins-jobs
+    # Docker 소켓 마운트 (이미 정의되어 있을 수 있음)
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+  
+  # 마운트 설정 - 콘솔에 표시된 정확한 경로로 설정
+  volumeMounts:
+    - name: jenkins-config-volume
+      mountPath: /var/jenkins_home/casc_configs
+    - name: jenkins-jobs-volume
+      mountPath: /var/jenkins_home/casc_configs/jobs
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+
+  # 프로브 경로 수정
+  healthProbes:
+    enabled: true  # 헬스 프로브 활성화
+  
+  probes:
+    startupProbe:
+      path: '/login'  # 시작 프로브 경로를 /login으로 변경
+      initialDelaySeconds: 90  # 시작 지연 시간 증가
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 12
+    livenessProbe:
+      path: '/login'  # 라이브니스 프로브 경로를 /login으로 변경
+      initialDelaySeconds: 90
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 5
+    readinessProbe:
+      path: '/login'  # 레디니스 프로브 경로를 /login으로 변경
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+  
+  # JCasC 설정 - 콘솔에 표시된 정확한 경로로 설정
+  JCasC:
+    enabled: true
+    defaultConfig: false
+    # ConfigMap 경로 수정
+    configPaths: "/var/jenkins_home/casc_configs"
+    configScripts: {}
+    
+  # ConfigMap 설정을 간단히 바꿈
+  additionalExistingConfigMaps:
+    - jenkins-config
+    - jenkins-jobs
+  
+  # CSRF 보호 설정
+  csrf:
+    defaultCrumbIssuer:
+      enabled: true
+      proxyCompatibility: true
+
+  # controller 섹션 안에 ingress 설정 추가
+  ingress:
+    enabled: ${ingress_enabled}
+    apiVersion: "networking.k8s.io/v1"
+    ingressClassName: "${ingress_class}"
+    hostName: "${ingress_host}"
+    annotations:
+      alb.ingress.kubernetes.io/scheme: "internet-facing"
+      alb.ingress.kubernetes.io/target-type: "ip"
+
+agent:
+  enabled: true
+  image: "jenkins/inbound-agent:latest"
+  workingDir: "/home/jenkins/agent"
+
+serviceAccount:
+  create: false
+  name: "${service_account_name}"
+initScripts:
+  seed-job.groovy: |
+    import jenkins.model.*
+    import javaposse.jobdsl.plugin.*
+    import hudson.model.*
+    import hudson.triggers.TimerTrigger
+    
+    def instance = Jenkins.getInstance()
+    def seedJob = instance.getItem("seed-job")
+    if (seedJob == null) {
+      def job = instance.createProject(FreeStyleProject, "seed-job")
+      job.buildersList.add(new javaposse.jobdsl.plugin.ExecuteDslScripts(
+        new javaposse.jobdsl.plugin.ExecuteDslScripts.ScriptLocation(
+          "FILE", "/var/jenkins_home/casc_configs/jobs/jobs.yaml", ""
+        ),
+        false, javaposse.jobdsl.plugin.RemovedJobAction.DELETE, 
+        javaposse.jobdsl.plugin.RemovedViewAction.IGNORE,
+        javaposse.jobdsl.plugin.LookupStrategy.JENKINS_ROOT
+      ))
+      
+      // 작업 생성 후 바로 실행
+      job.scheduleBuild(0, new Cause.UserIdCause())
+      
+      job.save()
+      println("Seed Job이 생성되었습니다!")
+    } else {
+      println("Seed Job이 이미 존재합니다.")
+    }

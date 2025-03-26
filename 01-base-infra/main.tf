@@ -53,14 +53,24 @@ module "security" {
 #---------------------------------------
 module "secrets" {
   source = "../modules/secrets"
-
+  
   prefix      = local.project_name
   common_tags = local.common_tags
-
-  # 민감 정보
+  
+  # 데이터베이스 정보
   db_username = var.db_username
   db_password = var.db_password
   db_name     = var.db_name
+  
+  # GitHub 토큰 추가
+  github_token = var.github_token
+  
+  # Jenkins 관련 시크릿 추가
+  jenkins_admin_password = var.jenkins_admin_password
+  aws_access_key         = var.aws_access_key
+  aws_secret_key         = var.aws_secret_key
+  dockerhub_username     = var.dockerhub_username
+  dockerhub_password     = var.dockerhub_password
 
   # 네트워킹 모듈에 의존성 추가
   depends_on = [

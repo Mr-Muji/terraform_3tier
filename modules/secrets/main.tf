@@ -55,27 +55,80 @@ resource "aws_secretsmanager_secret_version" "mysql" {
   })
 }
 
+# GitHub 토큰 시크릿 생성
+resource "aws_secretsmanager_secret" "github" {
+  name        = "${var.prefix}/github/token-${random_string.secret_suffix.result}"
+  description = "GitHub access token for repository operations(argocd manifest repo)"
+  kms_key_id  = aws_kms_key.secrets.arn
+  
+  # 복구 윈도우 설정 (개발 환경용)
+  recovery_window_in_days = 0
+  
+  tags = merge(var.common_tags, {
+    Name = "${var.prefix}-github-token-secret"
+  })
+}
+
+# GitHub 토큰 값 설정
+resource "aws_secretsmanager_secret_version" "github" {
+  secret_id = aws_secretsmanager_secret.github.id
+  
+  # 항상 빈 객체라도 생성
+  secret_string = jsonencode({
+    token = var.github_token != "" ? var.github_token : "dummy-token"
+  })
+}
+
+# Jenkins 관련 시크릿 생성
+resource "aws_secretsmanager_secret" "jenkins" {
+  name        = "${var.prefix}/jenkins/credentials-${random_string.secret_suffix.result}"
+  description = "Jenkins credentials and sensitive variables"
+  kms_key_id  = aws_kms_key.secrets.arn
+  
+  recovery_window_in_days = 0
+  
+  tags = merge(var.common_tags, {
+    Name = "${var.prefix}-jenkins-secrets"
+  })
+}
+
+# Jenkins 시크릿 값 설정
+resource "aws_secretsmanager_secret_version" "jenkins" {
+  secret_id = aws_secretsmanager_secret.jenkins.id
+  
+  # 기본값 제공
+  secret_string = jsonencode({
+    admin_password    = var.jenkins_admin_password != "" ? var.jenkins_admin_password : "admin123"
+    aws_access_key    = var.aws_access_key != "" ? var.aws_access_key : ""
+    aws_secret_key    = var.aws_secret_key != "" ? var.aws_secret_key : ""
+    dockerhub_username = var.dockerhub_username != "" ? var.dockerhub_username : ""
+    dockerhub_password = var.dockerhub_password != "" ? var.dockerhub_password : "" 
+  })
+}
+
 # EKS 클러스터에 시크릿 접근을 위한 IAM 정책
 resource "aws_iam_policy" "secrets_access" {
-  name        = "${var.prefix}-db-secrets-access-policy"
-  description = "Policy to allow EKS pods to access MySQL database secrets"
+  name        = "${var.prefix}-secrets-access-policy"
+  description = "Allow access to Secrets Manager secrets for EKS workloads"
   
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow",
-        Action = [
+        Effect   = "Allow",
+        Action   = [
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ],
         Resource = [
-          aws_secretsmanager_secret.mysql.arn
+          aws_secretsmanager_secret.mysql.arn,
+          aws_secretsmanager_secret.github.arn,
+          aws_secretsmanager_secret.jenkins.arn
         ]
       },
       {
-        Effect = "Allow",
-        Action = [
+        Effect   = "Allow",
+        Action   = [
           "kms:Decrypt"
         ],
         Resource = [
