@@ -49,9 +49,21 @@ on:
           - 'false'
 
 env:
+  # AWS 인증 관련
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_REGION: ap-northeast-2
+  
+  # 테라폼 관련 설정
+  TERRAFORM_VERSION: "1.11.2"
+  TF_CLI_ARGS: "-no-color"
+  
+  # 모듈 디렉토리 관리
+  DIR_00_PREREQUISITES: "./00-prerequisites"
+  DIR_01_BASE_INFRA: "./01-base-infra"
+  DIR_02_DATABASE: "./02-database"
+  DIR_03_COMPUTE: "./03-compute"
+  DIR_04_CICD_APPS: "./04-cicd-apps"
 
 jobs:
   terraform-00-prerequisites:
@@ -68,7 +80,7 @@ jobs:
       - name: Terraform 설정
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform 초기화
         id: init
@@ -101,7 +113,7 @@ jobs:
       - name: Terraform 설정
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform 초기화
         id: init
@@ -120,7 +132,7 @@ jobs:
         run: |
           terraform destroy -auto-approve
           if [ "${{ github.event.inputs.run_module_00 }}" = "true" ]; then
-            cd ../00-prerequisites
+            cd ${{ env.DIR_00_PREREQUISITES }}
             terraform destroy -auto-approve
           fi
 
@@ -139,7 +151,7 @@ jobs:
       - name: Terraform 설정
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform 초기화
         id: init
@@ -158,11 +170,11 @@ jobs:
         run: |
           terraform destroy -auto-approve
           if [ "${{ github.event.inputs.run_module_01 }}" = "true" ]; then
-            cd ../01-base-infra
+            cd ${{ env.DIR_01_BASE_INFRA }}
             terraform destroy -auto-approve
           fi
           if [ "${{ github.event.inputs.run_module_00 }}" = "true" ]; then
-            cd ../00-prerequisites
+            cd ${{ env.DIR_00_PREREQUISITES }}
             terraform destroy -auto-approve
           fi
 
@@ -181,7 +193,7 @@ jobs:
       - name: Terraform 설정
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform 초기화
         id: init
@@ -200,15 +212,15 @@ jobs:
         run: |
           terraform destroy -auto-approve
           if [ "${{ github.event.inputs.run_module_02 }}" = "true" ]; then
-            cd ../02-database
+            cd ${{ env.DIR_02_DATABASE }}
             terraform destroy -auto-approve
           fi
           if [ "${{ github.event.inputs.run_module_01 }}" = "true" ]; then
-            cd ../01-base-infra
+            cd ${{ env.DIR_01_BASE_INFRA }}
             terraform destroy -auto-approve
           fi
           if [ "${{ github.event.inputs.run_module_00 }}" = "true" ]; then
-            cd ../00-prerequisites
+            cd ${{ env.DIR_00_PREREQUISITES }}
             terraform destroy -auto-approve
           fi
 
@@ -227,7 +239,7 @@ jobs:
       - name: Terraform 설정
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform 초기화
         id: init
@@ -246,18 +258,18 @@ jobs:
         run: |
           terraform destroy -auto-approve
           if [ "${{ github.event.inputs.run_module_03 }}" = "true" ]; then
-            cd ../03-compute
+            cd ${{ env.DIR_03_COMPUTE }}
             terraform destroy -auto-approve
           fi
           if [ "${{ github.event.inputs.run_module_02 }}" = "true" ]; then
-            cd ../02-database
+            cd ${{ env.DIR_02_DATABASE }}
             terraform destroy -auto-approve
           fi
           if [ "${{ github.event.inputs.run_module_01 }}" = "true" ]; then
-            cd ../01-base-infra
+            cd ${{ env.DIR_01_BASE_INFRA }}
             terraform destroy -auto-approve
           fi
           if [ "${{ github.event.inputs.run_module_00 }}" = "true" ]; then
-            cd ../00-prerequisites
+            cd ${{ env.DIR_00_PREREQUISITES }}
             terraform destroy -auto-approve
           fi
