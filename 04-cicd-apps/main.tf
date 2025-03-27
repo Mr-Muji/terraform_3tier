@@ -48,6 +48,12 @@ module "cicd" {
   frontend_repository_url = data.terraform_remote_state.prerequisites.outputs.frontend_ecr_url
   backend_repository_url  = data.terraform_remote_state.prerequisites.outputs.backend_ecr_url
 
+  # 데이터베이스 연결 정보 전달
+  db_host     = local.db_host
+  db_port     = local.db_port
+  db_name     = local.db_name
+  db_credentials_secret_arn = local.db_credentials_secret_arn
+
   # 의존성 주입
   depends_on = [
     data.terraform_remote_state.compute

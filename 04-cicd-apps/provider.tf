@@ -56,6 +56,16 @@ data "terraform_remote_state" "prerequisites" {
   }
 }
 
+# 02-database 모듈에서 상태 정보 가져오기
+data "terraform_remote_state" "database" {
+  backend = "s3"
+  config = {
+    bucket = local.remote_state_bucket
+    key    = "tier3/02-database/terraform.tfstate"
+    region = local.remote_state_region
+  }
+}
+
 # ECR 인증 토큰 가져오기
 data "aws_ecr_authorization_token" "token" {
   registry_id = data.aws_caller_identity.current.account_id
@@ -100,12 +110,3 @@ provider "helm" {
   }
 }
 
-# 02-database 모듈에서 상태 정보 가져오기
-data "terraform_remote_state" "database" {
-  backend = "s3"
-  config = {
-    bucket = local.remote_state_bucket
-    key    = "tier3/02-database/terraform.tfstate"
-    region = local.remote_state_region
-  }
-}

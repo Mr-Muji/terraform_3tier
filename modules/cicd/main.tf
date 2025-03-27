@@ -36,6 +36,20 @@ data "kubernetes_namespace" "argocd" {
   }
 }
 
+# 데이터베이스 자격 증명 정보 가져오기
+data "aws_secretsmanager_secret" "db_credentials" {
+  arn = var.db_credentials_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "db_credentials" {
+  secret_id = data.aws_secretsmanager_secret.db_credentials.id
+}
+
+locals {
+  # Secret 값을 JSON으로 변환
+  db_credentials = jsondecode(data.aws_secretsmanager_secret_version.db_credentials.secret_string)
+}
+
 # App of Apps 루트 애플리케이션 생성
 resource "kubernetes_manifest" "argocd_root_app" {
   manifest = {
@@ -65,6 +79,15 @@ resource "kubernetes_manifest" "argocd_root_app" {
               repositories = {
                 frontend = var.frontend_repository_url
                 backend = var.backend_repository_url
+              }
+              
+              # 데이터베이스 연결 정보 추가
+              database = {
+                host     = var.db_host
+                port     = var.db_port
+                name     = var.db_name
+                username = local.db_credentials.username
+                password = local.db_credentials.password
               }
               
               # 하위 앱들에게 전달할 인그레스 설정

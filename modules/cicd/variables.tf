@@ -242,3 +242,25 @@ variable "backend_repo_name" {
   type        = string
   default     = ""
 }
+
+# 데이터베이스 연결 관련 변수
+variable "db_host" {
+  description = "데이터베이스 호스트 엔드포인트"
+  type        = string
+}
+
+variable "db_port" {
+  description = "데이터베이스 포트"
+  type        = string
+  default     = "3306"
+}
+
+variable "db_name" {
+  description = "데이터베이스 이름"
+  type        = string
+}
+
+variable "db_credentials_secret_arn" {
+  description = "데이터베이스 자격 증명이 저장된 Secrets Manager ARN"
+  type        = string
+}

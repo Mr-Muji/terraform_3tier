@@ -37,7 +37,7 @@ locals {
   node_disk_size     = 20         # GB
   node_desired_size  = 3          # 노드 수
   node_min_size      = 2
-  node_max_size      = 5
+  node_max_size      = 3
 
   # Auto Scaling 설정
   enable_autoscaling = true

@@ -71,4 +71,4 @@ jenkins:
   
   # 작업 로더 추가
   jobs:
-    - file: /var/jenkins_home/casc_configs/jobs/jobs.yaml
+    - file: /var/jenkins_config/jobs/jenkins-jobs.yaml

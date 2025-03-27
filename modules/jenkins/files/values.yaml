@@ -46,7 +46,6 @@ controller:
     - name: jenkins-jobs-volume
       configMap:
         name: jenkins-jobs
-    # Docker 소켓 마운트 (이미 정의되어 있을 수 있음)
     - name: docker-sock
       hostPath:
         path: /var/run/docker.sock
@@ -54,9 +53,9 @@ controller:
   # 마운트 설정 - 콘솔에 표시된 정확한 경로로 설정
   volumeMounts:
     - name: jenkins-config-volume
-      mountPath: /var/jenkins_home/casc_configs
+      mountPath: /var/jenkins_config
     - name: jenkins-jobs-volume
-      mountPath: /var/jenkins_home/casc_configs/jobs
+      mountPath: /var/jenkins_config/jobs
     - name: docker-sock
       mountPath: /var/run/docker.sock
 
@@ -88,14 +87,11 @@ controller:
   JCasC:
     enabled: true
     defaultConfig: false
-    # ConfigMap 경로 수정
-    configPaths: "/var/jenkins_home/casc_configs"
-    configScripts: {}
-    
-  # ConfigMap 설정을 간단히 바꿈
-  additionalExistingConfigMaps:
-    - jenkins-config
-    - jenkins-jobs
+    configMaps:
+      - jenkins-config
+      - jenkins-jobs
+    # configPaths를 수정하여 마운트 경로와 일치시킴
+    configPaths: "/var/jenkins_config"
   
   # CSRF 보호 설정
   csrf:
@@ -134,7 +130,7 @@ initScripts:
       def job = instance.createProject(FreeStyleProject, "seed-job")
       job.buildersList.add(new javaposse.jobdsl.plugin.ExecuteDslScripts(
         new javaposse.jobdsl.plugin.ExecuteDslScripts.ScriptLocation(
-          "FILE", "/var/jenkins_home/casc_configs/jobs/jobs.yaml", ""
+          "FILE", "/var/jenkins_config/jobs/jenkins-jobs.yaml", ""
         ),
         false, javaposse.jobdsl.plugin.RemovedJobAction.DELETE, 
         javaposse.jobdsl.plugin.RemovedViewAction.IGNORE,

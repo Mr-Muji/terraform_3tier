@@ -52,4 +52,12 @@ locals {
   
   # 로드밸런서 이름 설정 - 여전히 필요합니다 (인그레스 어노테이션에 사용)
   frontend_lb_name = "${local.project_name}-frontend-lb"
+  
+  # 데이터베이스 연결 정보 - 02-database에서 가져옴
+  db_host = data.terraform_remote_state.database.outputs.db_instance_endpoint
+  db_port = "3306"
+  db_name = data.terraform_remote_state.database.outputs.db_instance_name
+  
+  # Secrets Manager ARN - 01번 모듈(base-infra)에서 가져옴
+  db_credentials_secret_arn = data.terraform_remote_state.base_infra.outputs.mysql_secret_arn
 }
