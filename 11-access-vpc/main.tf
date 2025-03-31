@@ -2,7 +2,7 @@
 # Access VPC 생성
 #---------------------------------------
 module "access_vpc" {
-  source = "../modules/vpc"
+  source = "../modules/access-vpc"
 
   # 프로젝트 정보
   project_name = local.project_name

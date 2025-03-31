@@ -126,14 +126,18 @@ resource "aws_eip" "openvpn" {
   })
 }
 
-#---------------------------------------
-# Transit Gateway 생성
-#---------------------------------------
+#=======================================================================
+# AWS Transit Gateway 구성
+#=======================================================================
+# Transit Gateway는 여러 VPC와 온프레미스 네트워크를 연결하는 중앙 허브
+# 복잡한 피어링 연결 없이 "허브-스포크" 아키텍처로 네트워크 단순화
 resource "aws_ec2_transit_gateway" "this" {
-  description                     = "${local.project_name}-${local.environment}-tgw"
-  default_route_table_association = "enable"
-  default_route_table_propagation = "enable"
-  
+  description                     = "메인 VPC와 액세스 VPC를 연결하는 트랜짓 게이트웨이"
+  default_route_table_association = "enable"  # 자동으로 라우트 테이블에 연결
+  default_route_table_propagation = "enable"  # 라우트 자동 전파 활성화
+  dns_support                     = "enable"  # DNS 지원 활성화
+  vpn_ecmp_support                = "enable"  # VPN ECMP(Equal Cost Multi-Path) 활성화
+
   tags = {
     Name = "${local.project_name}-${local.environment}-tgw"
   }
@@ -142,10 +146,12 @@ resource "aws_ec2_transit_gateway" "this" {
 #---------------------------------------
 # Transit Gateway VPC 어태치먼트 - 메인 VPC
 #---------------------------------------
+# 트랜짓 게이트웨이에 메인 VPC를 연결
+# 이 연결을 통해 메인 VPC의 리소스가 액세스 VPC와 통신 가능
 resource "aws_ec2_transit_gateway_vpc_attachment" "main_vpc" {
-  subnet_ids         = data.terraform_remote_state.main_vpc.outputs.private_subnet_ids
-  transit_gateway_id = aws_ec2_transit_gateway.this.id
-  vpc_id             = coalesce(var.main_vpc_id, data.terraform_remote_state.main_vpc.outputs.vpc_id)
+  subnet_ids         = data.terraform_remote_state.main_vpc.outputs.private_subnet_ids  # 메인 VPC의 프라이빗 서브넷 사용
+  transit_gateway_id = aws_ec2_transit_gateway.this.id  # 위에서 생성한 트랜짓 게이트웨이 참조
+  vpc_id             = coalesce(var.main_vpc_id, data.terraform_remote_state.main_vpc.outputs.vpc_id)  # 메인 VPC ID
   
   tags = {
     Name = "${local.project_name}-${local.environment}-tgw-main-vpc-attachment"
@@ -155,10 +161,12 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "main_vpc" {
 #---------------------------------------
 # Transit Gateway VPC 어태치먼트 - 액세스 VPC
 #---------------------------------------
+# 트랜짓 게이트웨이에 액세스 VPC를 연결
+# 이 VPC는 사용자 접근용으로 OpenVPN 서버가 배치됨
 resource "aws_ec2_transit_gateway_vpc_attachment" "access_vpc" {
-  subnet_ids         = module.access_vpc.private_subnet_ids # 직접 생성한 VPC 참조
-  transit_gateway_id = aws_ec2_transit_gateway.this.id
-  vpc_id             = module.access_vpc.vpc_id # 직접 생성한 VPC 참조
+  subnet_ids         = module.access_vpc.private_subnet_ids  # 액세스 VPC의 프라이빗 서브넷 사용
+  transit_gateway_id = aws_ec2_transit_gateway.this.id  # 위에서 생성한 트랜짓 게이트웨이 참조
+  vpc_id             = module.access_vpc.vpc_id  # 직접 생성한 액세스 VPC ID
   
   tags = {
     Name = "${local.project_name}-${local.environment}-tgw-access-vpc-attachment"
@@ -168,61 +176,68 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "access_vpc" {
 #---------------------------------------
 # 라우팅 테이블 업데이트 - 메인 VPC 라우트 테이블에 액세스 VPC로 가는 경로 추가
 #---------------------------------------
+# 메인 VPC의 프라이빗 서브넷에서 액세스 VPC로 가는 트래픽이 TGW를 통해 라우팅되도록 설정
 resource "aws_route" "main_to_access" {
-  count                  = length(data.terraform_remote_state.main_vpc.outputs.private_route_table_ids)
-  route_table_id         = data.terraform_remote_state.main_vpc.outputs.private_route_table_ids[count.index]
-  destination_cidr_block = local.access_vpc_cidr # 직접 정의한 CIDR 사용
-  transit_gateway_id     = aws_ec2_transit_gateway.this.id
+  count                  = length(data.terraform_remote_state.main_vpc.outputs.private_route_table_ids)  # 모든 프라이빗 라우트 테이블에 적용
+  route_table_id         = data.terraform_remote_state.main_vpc.outputs.private_route_table_ids[count.index]  # 개별 라우트 테이블 ID
+  destination_cidr_block = local.access_vpc_cidr  # 액세스 VPC의 CIDR 범위 (목적지)
+  transit_gateway_id     = aws_ec2_transit_gateway.this.id  # 트래픽이 트랜짓 게이트웨이를 통과하도록 설정
 }
 
 # 메인 VPC 퍼블릭 라우트 테이블에도 액세스 VPC로 가는 경로 추가
+# 퍼블릭 서브넷의 리소스도 액세스 VPC와 통신할 수 있도록 함
 resource "aws_route" "main_public_to_access" {
-  route_table_id         = data.terraform_remote_state.main_vpc.outputs.public_route_table_id
-  destination_cidr_block = local.access_vpc_cidr # 직접 정의한 CIDR 사용
-  transit_gateway_id     = aws_ec2_transit_gateway.this.id
+  route_table_id         = data.terraform_remote_state.main_vpc.outputs.public_route_table_id  # 퍼블릭 라우트 테이블 ID
+  destination_cidr_block = local.access_vpc_cidr  # 액세스 VPC의 CIDR 범위 (목적지)
+  transit_gateway_id     = aws_ec2_transit_gateway.this.id  # 트래픽이 트랜짓 게이트웨이를 통과하도록 설정
 }
 
 #---------------------------------------
 # 라우팅 테이블 업데이트 - 액세스 VPC 라우트 테이블에 메인 VPC로 가는 경로 추가
 #---------------------------------------
+# 액세스 VPC의 프라이빗 서브넷에서 메인 VPC로 가는 트래픽이 TGW를 통해 라우팅되도록 설정
 resource "aws_route" "access_to_main" {
-  count                  = length(module.access_vpc.private_route_table_ids) # 직접 생성한 값 참조
-  route_table_id         = module.access_vpc.private_route_table_ids[count.index] # 직접 생성한 값 참조
-  destination_cidr_block = coalesce(var.main_vpc_cidr, data.terraform_remote_state.main_vpc.outputs.vpc_cidr)
-  transit_gateway_id     = aws_ec2_transit_gateway.this.id
+  count                  = length(module.access_vpc.private_route_table_ids)  # 모든 프라이빗 라우트 테이블에 적용
+  route_table_id         = module.access_vpc.private_route_table_ids[count.index]  # 개별 라우트 테이블 ID
+  destination_cidr_block = coalesce(var.main_vpc_cidr, data.terraform_remote_state.main_vpc.outputs.vpc_cidr)  # 메인 VPC의 CIDR 범위 (목적지)
+  transit_gateway_id     = aws_ec2_transit_gateway.this.id  # 트래픽이 트랜짓 게이트웨이를 통과하도록 설정
 }
 
 # 액세스 VPC 퍼블릭 라우트 테이블에도 메인 VPC로 가는 경로 추가
+# OpenVPN 서버가 위치한 퍼블릭 서브넷에서 메인 VPC로의 통신 경로 확보
 resource "aws_route" "access_public_to_main" {
-  route_table_id         = module.access_vpc.public_route_table_id # 직접 생성한 값 참조
-  destination_cidr_block = coalesce(var.main_vpc_cidr, data.terraform_remote_state.main_vpc.outputs.vpc_cidr)
-  transit_gateway_id     = aws_ec2_transit_gateway.this.id
+  route_table_id         = module.access_vpc.public_route_table_id  # 퍼블릭 라우트 테이블 ID
+  destination_cidr_block = coalesce(var.main_vpc_cidr, data.terraform_remote_state.main_vpc.outputs.vpc_cidr)  # 메인 VPC의 CIDR 범위 (목적지)
+  transit_gateway_id     = aws_ec2_transit_gateway.this.id  # 트래픽이 트랜짓 게이트웨이를 통과하도록 설정
 }
 
 #---------------------------------------
 # OpenVPN에 메인 VPC 라우팅 설정 추가
 #---------------------------------------
+# OpenVPN 서버 설정이 완료된 후 메인 VPC 라우팅을 자동으로 구성
+# 클라이언트가 VPN 연결 시 메인 VPC 리소스에 접근할 수 있도록 함
 resource "null_resource" "update_openvpn_routing" {
-  depends_on = [aws_instance.openvpn, aws_route.access_to_main]
+  depends_on = [aws_instance.openvpn, aws_route.access_to_main]  # OpenVPN 서버 생성 및 라우팅 설정 후 실행
 
-  # OpenVPN 생성 후 메인 VPC CIDR도 자동으로 추가
+  # 설정 완료를 알리는 메시지 출력 (실제 설정은 OpenVPN 서버 내부에서 자동 수행)
   provisioner "local-exec" {
     command = <<-EOT
       echo "OpenVPN 서버에 메인 VPC 라우팅 설정 자동 적용됨: 연결 시 메인 VPC 접근 가능"
     EOT
   }
 
-  # user_data에 넣을 수도 있지만, TGW 연결 후에 진행하기 위해 별도로 정의
-  # 실제 환경에서는 수동으로 진행하거나 더 복잡한 자동화 필요할 수 있음
+  # 실제 환경에서는 여기에 OpenVPN 서버에 SSH 연결 후 라우팅 설정을 추가하는 스크립트가 필요할 수 있음
+  # 지금은 간단한 메시지만 표시하고 있지만, 프로덕션 환경에서는 더 복잡한 자동화 스크립트 필요
 }
 
 #---------------------------------------
 # OpenVPN 접속 가이드 출력
 #---------------------------------------
+# 인프라 설정이 완료된 후 관리자에게 OpenVPN 설정 방법 안내
 resource "null_resource" "openvpn_guide" {
-  depends_on = [aws_instance.openvpn, aws_route.access_to_main]
+  depends_on = [aws_instance.openvpn, aws_route.access_to_main]  # OpenVPN 서버 생성 및 라우팅 설정 완료 후 실행
 
-  # OpenVPN 생성 및 설정 완료 후 접속 가이드 출력
+  # 자세한 OpenVPN 설정 및 사용 가이드 출력
   provisioner "local-exec" {
     command = <<-EOT
       echo "============================================================"

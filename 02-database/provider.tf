@@ -2,7 +2,7 @@
 # 프로바이더 및 Terraform 버전 요구사항
 #---------------------------------------
 terraform {
-  required_version = ">= 1.0.0"
+  required_version = ">= 1.3.0"
 
   required_providers {
     aws = {
@@ -22,8 +22,8 @@ data "terraform_remote_state" "base_infra" {
   backend = "s3"  # remote_state_backend 대신 직접 "s3" 사용
 
   config = {
-    bucket = local.remote_state_bucket
-    key    = local.remote_state_key_base  # remote_state_key 대신 remote_state_key_base 사용
-    region = local.remote_state_region
+    bucket = "s3-3tier-terraform-state"
+    key    = "3tier/base-infra/terraform.tfstate"
+    region = "ap-northeast-2"
   }
 }

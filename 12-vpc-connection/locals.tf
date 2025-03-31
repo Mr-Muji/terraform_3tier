@@ -13,7 +13,7 @@ locals {
     ManagedBy   = "Terraform"
     Project     = local.project_name
     Environment = local.environment
-    Stage       = "12-VPC-Connection"
+    Stage       = "VPC-Connection"
   }
 
  

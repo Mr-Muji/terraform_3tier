@@ -2,7 +2,7 @@
  * CICD 모듈
  * 
  * 이 모듈은 다음 기능을 제공합니다:
- * 1. 기존 ECR 저장소 참조 (00-prerequisites에서 생성됨)
+ * 1. 기존 ECR 저장소 참조 (prerequisites에서 생성됨)
  * 2. ArgoCD Root Application - App of Apps 패턴 구현
  */
 

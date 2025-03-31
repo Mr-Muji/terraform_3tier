@@ -20,10 +20,24 @@ terraform {
   }
 }
 
+# common 원격 상태 데이터 소스 추가
+data "terraform_remote_state" "common" {
+  backend = "s3"
+  
+  config = {
+    bucket = "s3-3tier-terraform-state"
+    key    = "3tier/common/terraform.tfstate"
+    region = "ap-northeast-2"
+  }
+}
 
 # 공통 공급자 설정
 provider "aws" {
-  region = local.aws_region
+  region = data.terraform_remote_state.common.outputs.aws_region
+  
+  default_tags {
+    tags = data.terraform_remote_state.common.outputs.common_tags
+  }
 }
 
 # prerequisites 원격 상태 데이터 소스 추가
@@ -31,9 +45,9 @@ data "terraform_remote_state" "prerequisites" {
   backend = "s3"
   
   config = {
-    bucket = local.remote_state_bucket
-    key    = "tier3/00-prerequisites/terraform.tfstate"
-    region = local.aws_region
+    bucket = data.terraform_remote_state.common.outputs.remote_state_bucket
+    key    = "3tier/prerequisites/terraform.tfstate"
+    region = data.terraform_remote_state.common.outputs.remote_state_region
   }
 }
 
@@ -42,9 +56,9 @@ data "terraform_remote_state" "base_infra" {
   backend = "s3"
   
   config = {
-    bucket = local.remote_state_bucket
-    key    = "tier3/01-base-infra/terraform.tfstate"
-    region = local.aws_region
+    bucket = data.terraform_remote_state.common.outputs.remote_state_bucket
+    key    = "3tier/base-infra/terraform.tfstate"
+    region = data.terraform_remote_state.common.outputs.remote_state_region
   }
 }
 
@@ -67,7 +81,7 @@ provider "kubernetes" {
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", local.safe_cluster_id, "--region", local.aws_region]
+    args        = ["eks", "get-token", "--cluster-name", local.safe_cluster_id, "--region", data.terraform_remote_state.common.outputs.aws_region]
   }
 }
 

@@ -2,25 +2,24 @@
 # 03단계: 로컬 변수 정의 - 컴퓨트 리소스 설정
 #---------------------------------------
 locals {
-  # 프로젝트 기본 설정
-  project_name = "tier3"
-  environment  = "dev"
-  aws_region   = "ap-northeast-2"
+  # 프로젝트 기본 설정 - common에서 가져옴
+  project_name = data.terraform_remote_state.common.outputs.project_name
+  environment  = data.terraform_remote_state.common.outputs.environment
+  aws_region   = data.terraform_remote_state.common.outputs.aws_region
 
-  # 공통 태그
-  common_tags = {
-    Owner       = "DevOps"
-    ManagedBy   = "Terraform"
-    Project     = local.project_name
-    Environment = local.environment
-    Stage       = "03-Compute"
-  }
+  # 공통 태그 - common의 태그에 모듈별 태그 추가
+  common_tags = merge(
+    data.terraform_remote_state.common.outputs.common_tags,
+    {
+      Stage = "compute"
+    }
+  )
 
   # 가용 영역 설정
   availability_zones = ["ap-northeast-2a", "ap-northeast-2c"]
 
-  # EKS 클러스터 설정
-  eks_cluster_name   = "tier3-eks-cluster"
+  # EKS 클러스터 설정 - 3tier로 변경
+  eks_cluster_name   = "${local.project_name}-eks-cluster"
   kubernetes_version = "1.31" # 최신 버전으로 설정
 
   # EKS 클러스터 엔드포인트 접근 설정
@@ -31,8 +30,8 @@ locals {
   # EKS 클러스터 관찰성 설정
   enable_cloudwatch_observability = true
 
-  # 노드 그룹 설정
-  node_group_name    = "tier3-nodegroup"
+  # 노드 그룹 설정 - 3tier로 변경
+  node_group_name    = "${local.project_name}-nodegroup"
   node_instance_type = "t3.medium" # 비용 효율적인 인스턴스 유형
   node_disk_size     = 20          # GB
   node_desired_size  = 3           # 노드 수
@@ -42,12 +41,11 @@ locals {
   # Auto Scaling 설정
   enable_autoscaling = true
 
-  # 원격 상태 설정
-  # 01-base-infra 상태 파일에서 정보 가져오기
+  # 원격 상태 설정 - common에서 가져옴
   remote_state_backend = "s3"
-  remote_state_bucket  = "terraform-state-tier3-123456"
-  remote_state_key     = "tier3/01-base-infra/terraform.tfstate"
-  remote_state_region  = "ap-northeast-2"
+  remote_state_bucket  = data.terraform_remote_state.common.outputs.remote_state_bucket
+  remote_state_key     = "3tier/base-infra/terraform.tfstate"
+  remote_state_region  = data.terraform_remote_state.common.outputs.remote_state_region
 
   # IRSA 관련 로컬 변수
   service_account_name = "myapp-sa"
@@ -63,8 +61,8 @@ locals {
     "alb.ingress.kubernetes.io/target-type" = "ip"
   }
 
-  # 도메인 설정
-  domain_name = "mydairy.my"
+  # 도메인 설정 - common에서 가져옴
+  domain_name = data.terraform_remote_state.common.outputs.domain_name
   zone_id     = "Z01078892J4R7FP4HB44O" # Route53 호스팅 존 ID
 
   # ArgoCD 전용 인그레스 설정
@@ -115,7 +113,7 @@ locals {
   jenkins_agent_image       = "jenkins/inbound-agent:latest"
   jenkins_agent_working_dir = "/home/jenkins/agent"
 
-  # ECR 관련 설정 (00-prerequisites에서 가져옴)
+  # ECR 관련 설정 (prerequisites에서 가져옴)
   backend_ecr_url  = data.terraform_remote_state.prerequisites.outputs.backend_ecr_url
   backend_ecr_name = data.terraform_remote_state.prerequisites.outputs.backend_ecr_name
 
@@ -126,6 +124,5 @@ locals {
   jenkins_job_suffix  = "pipeline"                                     # 작업 이름 접미사
   job_description     = "백엔드 애플리케이션 빌드 및 ECR 배포 파이프라인"                 # 작업 설명
   scm_poll_interval   = "H/3 * * * *"                                  # 3분마다 SCM 폴링
-
 
 }

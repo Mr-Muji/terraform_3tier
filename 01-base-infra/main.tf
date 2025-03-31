@@ -5,10 +5,12 @@
 module "networking" {
   source = "../modules/networking"
 
-  # locals에서 변수 전달
-  project_name           = local.project_name
-  environment            = local.environment
-  vpc_cidr               = local.vpc_cidr
+  # common 모듈에서 가져온 값 사용
+  project_name = data.terraform_remote_state.common.outputs.project_name  # 이미 local.tf에서 common 출력값을 사용
+  environment  = data.terraform_remote_state.common.outputs.environment   # 이미 local.tf에서 common 출력값을 사용
+  vpc_cidr     = data.terraform_remote_state.common.outputs.vpc_cidr
+
+  # 기타 설정은 local.tf에서 가져옴
   availability_zones     = local.availability_zones
   public_subnet_cidrs    = local.public_subnet_cidrs
   private_subnet_cidrs   = local.private_subnet_cidrs
@@ -25,11 +27,10 @@ module "networking" {
 module "security" {
   source = "../modules/security"
 
-  # 네트워킹 모듈에서 출력된 값 전달
   vpc_id   = module.networking.vpc_id 
   vpc_cidr = local.vpc_cidr
 
-  # locals에서 변수 전달
+  # common 모듈에서 가져온 값은 local.tf에서 이미 처리
   project_name = local.project_name
   environment  = local.environment
 

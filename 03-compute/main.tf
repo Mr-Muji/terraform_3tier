@@ -1,5 +1,5 @@
 #---------------------------------------
-# 03-compute: EKS 클러스터 생성
+# compute: EKS 클러스터 생성
 # 이전 단계에서 생성된 VPC, 서브넷 정보를 활용하여 컴퓨트 리소스 생성
 #---------------------------------------
 
@@ -177,6 +177,49 @@ module "jenkins" {
 
   # 기존 github_token 대신 github_token_secret_arn 사용
   github_token_secret_arn = data.terraform_remote_state.base_infra.outputs.github_token_secret_arn
+}
+
+# EKS 클러스터가 완전히 준비된 후 연결 명령어 출력
+resource "null_resource" "eks_connection_info" {
+  depends_on = [module.compute, time_sleep.wait_for_eks]
+
+  # 클러스터 생성 또는 업데이트될 때만 실행
+  triggers = {
+    cluster_name = local.eks_cluster_name
+    cluster_endpoint = module.compute.cluster_endpoint
+  }
+
+  # 로컬에서 명령어 실행하여 연결 정보 출력
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo ""
+      echo "======================================================================"
+      echo "EKS 클러스터 연결 설정 안내"
+      echo "======================================================================"
+      echo ""
+      echo "1. 로컬 kubeconfig 파일 업데이트:"
+      echo "   aws eks update-kubeconfig --name ${local.eks_cluster_name} --region ${local.aws_region}"
+      echo ""
+      echo "2. 클러스터 연결 확인:"
+      echo "   kubectl get nodes"
+      echo ""
+      echo "3. 클러스터 정보 확인:"
+      echo "   kubectl cluster-info"
+      echo ""
+      echo "4. 리소스 확인:"
+      echo "   kubectl get pods --all-namespaces"
+      echo ""
+      echo "5. ArgoCD 접근:"
+      echo "   URL: https://${local.argocd_ingress_host}"
+      echo "   초기 사용자명: admin"
+      echo ""
+      echo "6. ArgoCD 초기 비밀번호 확인:"
+      echo "   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d"
+      echo ""
+      echo "   (비밀번호를 확인 후 ArgoCD UI에서 변경하는 것을 권장합니다)"
+      echo "======================================================================"
+    EOT
+  }
 }
 
 

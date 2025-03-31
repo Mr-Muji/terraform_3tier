@@ -16,8 +16,8 @@ data "terraform_remote_state" "main_vpc" {
   backend = "s3"
   
   config = {
-    bucket  = "terraform-state-tier3-123456"
-    key     = "tier3/01-base-infra/terraform.tfstate"
+    bucket  = "s3-3tier-terraform-state"
+    key     = "3tier/base-infra/terraform.tfstate"
     region  = "ap-northeast-2"
   }
 }
@@ -29,8 +29,8 @@ data "terraform_remote_state" "compute" {
   backend = "s3"
   
   config = {
-    bucket  = "terraform-state-tier3-123456"
-    key     = "tier3/03-compute/terraform.tfstate"
+    bucket  = "s3-3tier-terraform-state"
+    key     = "3tier/compute/terraform.tfstate"
     region  = "ap-northeast-2"
   }
 }

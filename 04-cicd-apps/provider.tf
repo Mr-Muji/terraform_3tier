@@ -26,42 +26,42 @@ provider "aws" {
   region = local.aws_region
 }
 
-# 01-base-infra에서 상태 정보 가져오기
+# base-infra에서 상태 정보 가져오기
 data "terraform_remote_state" "base_infra" {
   backend = "s3"
   config = {
-    bucket = local.remote_state_bucket
-    key    = "tier3/01-base-infra/terraform.tfstate"
-    region = local.remote_state_region
+    bucket = "s3-3tier-terraform-state"
+    key    = "3tier/base-infra/terraform.tfstate"
+    region = "ap-northeast-2"
   }
 }
 
-# 03-compute에서 상태 정보 가져오기
+# compute에서 상태 정보 가져오기
 data "terraform_remote_state" "compute" {
   backend = "s3"
   config = {
-    bucket = local.remote_state_bucket
-    key    = "tier3/03-compute/terraform.tfstate"
-    region = local.remote_state_region
+    bucket = "s3-3tier-terraform-state"
+    key    = "3tier/compute/terraform.tfstate"
+    region = "ap-northeast-2"
   }
 }
 
-# 00-prerequisites에서 ECR 정보 가져오기
+# prerequisites에서 ECR 정보 가져오기
 data "terraform_remote_state" "prerequisites" {
   backend = "s3"
   config = {
-    bucket = local.remote_state_bucket
-    key    = "tier3/00-prerequisites/terraform.tfstate"
-    region = local.remote_state_region
+    bucket = "s3-3tier-terraform-state"
+    key    = "3tier/prerequisites/terraform.tfstate"
+    region = "ap-northeast-2"
   }
 }
 
-# 02-database 모듈에서 상태 정보 가져오기
+# database 모듈에서 상태 정보 가져오기
 data "terraform_remote_state" "database" {
   backend = "s3"
   config = {
     bucket = local.remote_state_bucket
-    key    = "tier3/02-database/terraform.tfstate"
+    key    = "3tier/database/terraform.tfstate"
     region = local.remote_state_region
   }
 }

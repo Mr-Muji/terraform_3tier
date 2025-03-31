@@ -1,3 +1,4 @@
+#=======================================================
 # 클러스터 ID
 output "cluster_id" {
   description = "생성된 EKS 클러스터의 ID"
@@ -33,7 +34,7 @@ output "node_role_arn" {
   description = "EKS 노드 IAM 역할 ARN"
   value       = aws_iam_role.node.arn
 }
-
+#=======================================================
 # 노드 그룹 ARN
 output "node_group_arn" {
   description = "EKS 노드 그룹 ARN"

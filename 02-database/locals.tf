@@ -3,17 +3,17 @@
 #---------------------------------------
 locals {
   # 프로젝트 기본 설정
-  project_name = "tier3"
+  project_name = "3tier"
   environment  = "dev"
   aws_region   = "ap-northeast-2"
   
   # 공통 태그
   common_tags = {
-    Owner       = "DevOps"
+    Owner       = "Jacky"
     ManagedBy   = "Terraform"
     Project     = local.project_name
     Environment = local.environment
-    Stage       = "02-Database"
+    Stage       = "database"
   }
   
   # RDS 생성 제어 - true로 설정하면 생성, false로 설정하면 생성하지 않음
@@ -33,8 +33,8 @@ locals {
   availability_zones = ["ap-northeast-2a", "ap-northeast-2c"]
   db_availability_zone_a = local.availability_zones[0]
   
-  # 원격 상태 설정
-  remote_state_bucket = "terraform-state-tier3-123456"
-  remote_state_key_base = "tier3/01-base-infra/terraform.tfstate"
-  remote_state_region = local.aws_region
+  # # 원격 상태 설정
+  # remote_state_bucket = "terraform-state-tier3-123456"
+  # remote_state_key_base = "3tier/base-infra/terraform.tfstate"
+  # remote_state_region = local.aws_region
 }
