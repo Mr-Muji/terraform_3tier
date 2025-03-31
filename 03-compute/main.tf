@@ -122,6 +122,8 @@ resource "time_sleep" "wait_for_cluster" {
 # Jenkins 설치 (CI 파이프라인 구성용)
 #---------------------------------------
 module "jenkins" {
+  count = local.enable_jenkins ? 1 : 0  # enable_jenkins 값에 따라 설치 여부 결정
+  
   source = "../modules/jenkins"
 
   # 프로젝트 기본 정보

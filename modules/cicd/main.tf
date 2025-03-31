@@ -4,7 +4,6 @@
  * 이 모듈은 다음 기능을 제공합니다:
  * 1. 기존 ECR 저장소 참조 (00-prerequisites에서 생성됨)
  * 2. ArgoCD Root Application - App of Apps 패턴 구현
- * 3. 프론트엔드 인그레스용 Route53 레코드 사전 생성
  */
 
 #-------------------------------------------------------
@@ -14,9 +13,9 @@
 # 모든 ECR 저장소 목록 조회
 data "aws_ecr_repositories" "all" {}
 
-# 기존 ECR 저장소 참조
+# 프론트엔드 저장소는 조건부로 참조
 data "aws_ecr_repository" "existing_frontend_repo" {
-  count = contains(data.aws_ecr_repositories.all.names, var.frontend_repo_name) ? 1 : 0
+  count = var.enable_frontend_deployment && contains(data.aws_ecr_repositories.all.names, var.frontend_repo_name) ? 1 : 0
   name  = var.frontend_repo_name
 }
 

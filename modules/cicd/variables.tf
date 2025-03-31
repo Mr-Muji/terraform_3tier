@@ -264,3 +264,10 @@ variable "db_credentials_secret_arn" {
   description = "데이터베이스 자격 증명이 저장된 Secrets Manager ARN"
   type        = string
 }
+
+# 프론트엔드 배포 활성화 여부
+variable "enable_frontend_deployment" {
+  description = "프론트엔드 애플리케이션 배포 활성화 여부"
+  type        = bool
+  default     = false
+}

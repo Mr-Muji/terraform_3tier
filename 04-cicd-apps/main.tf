@@ -31,21 +31,23 @@ module "cicd" {
   # zone_id               = local.zone_id                   # 주석 처리
   # alb_hosted_zone_id    = local.alb_hosted_zone_id        # 주석 처리
   # enable_immediate_dns_setup = local.enable_immediate_dns_setup  # 주석 처리
-  frontend_ingress_host = local.domain_name     # local.frontend_ingress_host 대신 domain_name 직접 사용
-  frontend_ingress_name = local.frontend_ingress_name
   
-  # 저장소 및 로드밸런서 이름 설정
-  frontend_repo_name = local.frontend_repo_name
+  # 프론트엔드 배포 비활성화
+  enable_frontend_deployment = local.enable_frontend_deployment
+  
+  # 필수 속성 추가 (비활성화해도 필요함)
+  frontend_repository_url = ""
+  frontend_ingress_host = local.domain_name
+  
+  # 백엔드 저장소 설정 (프론트엔드 관련 부분 제거)
   backend_repo_name = local.backend_repo_name
-  frontend_lb_name = local.frontend_lb_name  # 로드밸런서 이름은 여전히 필요
 
   # ECR 관련 설정
   ecr_force_delete     = local.ecr_force_delete
   image_tag_mutability = "MUTABLE"
   scan_on_push         = true
 
-  # ECR 저장소 URL (이제 00-prerequisites에서 생성됨)
-  frontend_repository_url = data.terraform_remote_state.prerequisites.outputs.frontend_ecr_url
+  # ECR 저장소 URL - 백엔드만 유지
   backend_repository_url  = data.terraform_remote_state.prerequisites.outputs.backend_ecr_url
 
   # 데이터베이스 연결 정보 전달

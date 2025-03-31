@@ -30,28 +30,23 @@ locals {
   argocd_namespace = data.terraform_remote_state.compute.outputs.argocd_namespace
   
   # App of Apps 배포 설정
-  helm_charts_repo_url = "https://github.com/Mr-Muji/3tier-manifest.git"
-  helm_charts_repo_path = "apps"
+  helm_charts_repo_url = "https://github.com/Mr-Muji/3tier-practice.git"
+  helm_charts_repo_path = "argocd/apps"
   helm_charts_revision = "main"
   
   # ECR 관련 설정
   ecr_force_delete = false
   
-  # 프론트엔드 설정 - External DNS가 관리할 예정이므로 주석 처리
-  # frontend_ingress_host = "${local.domain_name}"
-  frontend_ingress_name = "frontend"
+  # 프론트엔드 배포 비활성화 - S3에서 직접 서빙하므로 필요 없음
+  enable_frontend_deployment = false
   
   # 원격 상태 설정
   remote_state_bucket = "terraform-state-tier3-123456"
   remote_state_key    = "tier3/03-compute/terraform.tfstate"
   remote_state_region = local.aws_region
   
-  # ECR 저장소 이름 설정
-  frontend_repo_name = "${local.project_name}-frontend"
+  # ECR 저장소 이름 설정 - 백엔드만 유지
   backend_repo_name = "${local.project_name}-backend"
-  
-  # 로드밸런서 이름 설정 - 여전히 필요합니다 (인그레스 어노테이션에 사용)
-  frontend_lb_name = "${local.project_name}-frontend-lb"
   
   # 데이터베이스 연결 정보 - 02-database에서 가져옴
   db_host = data.terraform_remote_state.database.outputs.db_instance_endpoint
